@@ -28,6 +28,10 @@ Route::get('/auth/login', function () {
     return view('auth.login.create');
 })->name('login');
 
+ 
+Route::get('/register_new', function () {
+    return view('auth.register.register_new');
+})->name('register.new');
 
 Route::get('features', fn () => view('pages.features'))->name('features');
 Route::get('/pricing', fn () => view('pages.pricing'))->name('pricing');
