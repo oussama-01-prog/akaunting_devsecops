@@ -56,10 +56,11 @@ class CreateCompany extends Job implements HasOwner, HasSource, ShouldCreate
      */
     public function authorize(): void
     {
-        $limit = $this->getAnyActionLimitOfPlan();
-        if (! $limit->action_status) {
-            throw new \Exception($limit->message);
-        }
+        // $limit = $this->getAnyActionLimitOfPlan();
+        // if (! $limit->action_status) {
+        //     throw new \Exception($limit->message);
+        // }
+        return;
     }
 
     protected function callSeeds(): void
