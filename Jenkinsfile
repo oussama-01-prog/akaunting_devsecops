@@ -5,14 +5,32 @@ pipeline {
     }
 
     stages {
+        
+        stage('Git fix') {
+    steps {
+        sh 'git config --global http.version HTTP/1.1'
+        sh 'git config --global http.postBuffer 524288000'
+    }
+}
 
-        stage('Checkout') {
-            steps {
-                cleanWs()
-                git branch: 'master',
-                    url: 'https://github.com/oussama-01-prog/akaunting_devsecops.git'
-            }
-        }
+stage('Checkout') {
+    steps {
+        checkout([
+            $class: 'GitSCM',
+            branches: [[name: '*/master']],
+            userRemoteConfigs: [[
+                url: 'https://github.com/oussama-01-prog/akaunting_devsecops.git'
+            ]],
+            extensions: [[
+                $class: 'CloneOption',
+                shallow: true,
+                depth: 1,
+                noTags: true,
+                timeout: 30
+            ]]
+        ])
+    }
+}
 
         stage('Check versions') {
             steps {
@@ -30,9 +48,9 @@ pipeline {
 
                     if [ ! -f .env ]; then
                       cat <<EOF > .env
-APP_ENV=testing
+APP_ENV=production
 APP_KEY=
-APP_DEBUG=true
+APP_DEBUG=false
 
 DB_CONNECTION=sqlite
 DB_DATABASE=database/database.sqlite
@@ -52,7 +70,10 @@ EOF
         stage('Composer install') {
             steps {
                 sh '''
-                    composer install --no-interaction --prefer-dist --no-progress
+                cd /var/jenkins_home/workspace/pipeline_akaunting_1
+                    composer install --no-dev --no-scripts --no-interaction --prefer-dist --no-progress
+                    php artisan config:clear
+                    php artisan config:cache
                 '''
             }
         }
