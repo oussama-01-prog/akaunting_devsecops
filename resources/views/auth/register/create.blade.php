@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<!-- <x-layouts.auth>
     <x-slot name="title">
         {{ trans('auth.register_user') }}
     </x-slot>
@@ -61,4 +61,144 @@
     </x-slot>
 
     <x-script folder="auth" file="common" />
-</x-layouts.auth>
+</x-layouts.auth> -->
+
+<!-- version2 -->
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Akaunting</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
+            <p class="text-slate-600">Join Akaunting to manage your finances with ease</p>
+        </div>
+
+        <!-- Registration Card -->
+        <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <form method="POST" action="{{ route('register') }}" class="space-y-5">
+                @csrf
+
+                <!-- Full Name Field -->
+                <div>
+                    <label for="name" class="block text-sm font-semibold text-slate-700 mb-2">
+                        Full Name
+                    </label>
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value="{{ old('name') }}"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('name') border-red-500 @enderror"
+                        placeholder="John Doe"
+                        required
+                    >
+                    @error('name')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block text-sm font-semibold text-slate-700 mb-2">
+                        Email Address
+                    </label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="{{ old('email') }}"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('email') border-red-500 @enderror"
+                        placeholder="you@example.com"
+                        required
+                    >
+                    @error('email')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block text-sm font-semibold text-slate-700 mb-2">
+                        Password
+                    </label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('password') border-red-500 @enderror"
+                        placeholder="Enter a strong password"
+                        required
+                    >
+                    @error('password')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Confirm Password Field -->
+                <div>
+                    <label for="password_confirmation" class="block text-sm font-semibold text-slate-700 mb-2">
+                        Confirm Password
+                    </label>
+                    <input
+                        type="password"
+                        id="password_confirmation"
+                        name="password_confirmation"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('password_confirmation') border-red-500 @enderror"
+                        placeholder="Confirm your password"
+                        required
+                    >
+                    @error('password_confirmation')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Terms & Conditions -->
+                <div class="flex items-start gap-3 py-2">
+                    <input
+                        type="checkbox"
+                        id="terms"
+                        name="terms"
+                        class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500 mt-1"
+                        required
+                    >
+                    <label for="terms" class="text-sm text-slate-600">
+                        I agree to the <a href="#" class="text-blue-600 hover:underline font-semibold">Terms of Service</a> and <a href="#" class="text-blue-600 hover:underline font-semibold">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button
+                    type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-md transition-colors duration-200 mt-6"
+                >
+                    Create Account
+                </button>
+            </form>
+        </div>
+
+        <!-- Login Link -->
+        <div class="text-center">
+            <p class="text-slate-600">
+                Already have an account?
+                <a href="{{ route('login') }}" class="text-blue-600 hover:underline font-semibold">
+                    Sign In
+                </a>
+            </p>
+        </div>
+
+        <!-- Support Links -->
+        <div class="mt-8 pt-6 border-t border-slate-200 flex justify-center gap-6 text-sm text-slate-600">
+            <a href="#" class="hover:text-slate-900">Help Center</a>
+            <a href="#" class="hover:text-slate-900">Contact Support</a>
+            <a href="#" class="hover:text-slate-900">Status</a>
+        </div>
+    </div>
+</body>
+</html>

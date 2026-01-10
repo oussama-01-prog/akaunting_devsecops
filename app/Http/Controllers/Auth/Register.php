@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Auth;
+// ...existing code...
 
 use App\Abstracts\Http\Controller;
 use App\Http\Requests\Auth\Register as Request;
