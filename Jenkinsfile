@@ -1,11 +1,7 @@
 pipeline {
     agent any
-    options { timestamps() }
-
-    environment {
-        APP_ENV = 'testing'
-        APP_KEY = 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
-        APP_DEBUG = 'false'
+    options {
+        timestamps()
     }
 
     stages {
@@ -36,33 +32,15 @@ pipeline {
             }
         }
 
-        stage('Check versions') {
-            steps {
-                sh '''
-                    php -v
-                    composer --version
-                '''
-            }
-        }
-
         stage('Prepare environment') {
             steps {
                 sh '''
-                    set -e
+                    # Clean cache
+                    rm -f bootstrap/cache/*.php
 
+                    # Copy .env if not exists
                     if [ ! -f .env ]; then
-                      cat <<EOF > .env
-APP_ENV=production
-APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-APP_DEBUG=false
-
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-
-CACHE_DRIVER=array
-SESSION_DRIVER=array
-QUEUE_CONNECTION=sync
-EOF
+                        cp .env.example .env
                     fi
 
                     mkdir -p database
@@ -74,27 +52,35 @@ EOF
         stage('Composer install') {
             steps {
                 sh '''
-                    composer install --no-dev --no-scripts --no-interaction --prefer-dist --no-progress
+                    # Install only prod packages, skip scripts to avoid dump-server errors
+                    composer install --no-dev --no-scripts --no-interaction --prefer-dist
                 '''
             }
         }
 
-        stage('Laravel build & tests') {
+        stage('Artisan commands') {
             steps {
                 sh '''
-                    php artisan key:generate --force
                     php artisan config:clear
                     php artisan config:cache
-                    php artisan package:discover --ansi
-                    php artisan test
+                    php artisan key:generate --force
                 '''
             }
         }
 
+        stage('Laravel tests') {
+            steps {
+                sh 'php artisan test'
+            }
+        }
     }
 
     post {
-        success { echo "✅ Build + Tests succeeded" }
-        failure { echo "❌ Build or Tests failed" }
+        success {
+            echo "✅ Tests and build completed successfully"
+        }
+        failure {
+            echo "❌ Pipeline failed"
+        }
     }
 }
