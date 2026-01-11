@@ -4,7 +4,6 @@ pipeline {
         timestamps()
     }
 
-    // SECTION CRITIQUE : Définit l'environnement pour utiliser votre PHP 8.1
     environment {
         PATH = "/usr/local/php8.1/bin:/usr/local/bin:${env.PATH}"
     }
@@ -18,26 +17,27 @@ pipeline {
                     php --version
                     echo ""
                     echo "========== VÉRIFICATION DES EXTENSIONS =========="
-                    # Liste des extensions vitales pour Laravel et leur nom dans 'php -m'
-                    declare -A REQUIRED_EXTS
-                    REQUIRED_EXTS=(
-                        ["mbstring"]="mbstring"
-                        ["curl"]="curl"
-                        ["openssl"]="openssl"
-                        ["PDO (SQLite)"]="pdo_sqlite"  # pdo_sqlite implique que PDO est chargé
-                        ["JSON"]="json"
-                        ["bcmath"]="bcmath"
-                        ["tokenizer"]="tokenizer"
-                        ["ctype"]="ctype"
-                        ["XML"]="xml"
-                    )
-                    
-                    for DISPLAY_NAME in "${!REQUIRED_EXTS[@]}"; do
-                        EXT_NAME="${REQUIRED_EXTS[$DISPLAY_NAME]}"
-                        if php -m | grep -q "^${EXT_NAME}\$"; then
-                            echo "✅ ${DISPLAY_NAME}"
+                    # Vérification simplifiée sans tableaux associatifs (compatible avec dash)
+                    EXTENSIONS="mbstring curl openssl pdo_sqlite json bcmath tokenizer ctype xml"
+                    for EXT in $EXTENSIONS; do
+                        if php -m | grep -q "^$EXT\$"; then
+                            case $EXT in
+                                mbstring) echo "✅ mbstring" ;;
+                                curl) echo "✅ curl" ;;
+                                openssl) echo "✅ openssl" ;;
+                                pdo_sqlite) echo "✅ PDO (SQLite)" ;;
+                                json) echo "✅ JSON" ;;
+                                bcmath) echo "✅ bcmath" ;;
+                                tokenizer) echo "✅ tokenizer" ;;
+                                ctype) echo "✅ ctype" ;;
+                                xml) echo "✅ XML" ;;
+                                *) echo "✅ $EXT" ;;
+                            esac
                         else
-                            echo "❌ ${DISPLAY_NAME} - EXTENSION MANQUANTE"
+                            case $EXT in
+                                pdo_sqlite) echo "❌ PDO (SQLite) - EXTENSION MANQUANTE" ;;
+                                *) echo "❌ $EXT - EXTENSION MANQUANTE" ;;
+                            esac
                         fi
                     done
                     echo "=========================================="
@@ -47,7 +47,6 @@ pipeline {
 
         stage('Checkout du Code') {
             steps {
-                // Syntaxe de checkout explicite qui fonctionne dans tout type de job Jenkins
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/master']],
@@ -72,7 +71,6 @@ pipeline {
             steps {
                 sh '''
                     echo "========== INSTALLATION DE COMPOSER =========="
-                    # Installation locale de Composer pour ce projet uniquement
                     EXPECTED_CHECKSUM="$(curl -s https://composer.github.io/installer.sig)"
                     php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
                     ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', 'composer-setup.php');")"
@@ -103,7 +101,6 @@ pipeline {
             steps {
                 sh '''
                     echo "========== CONFIGURATION LARAVEL =========="
-                    # Copie du fichier .env si nécessaire
                     if [ ! -f .env ]; then
                         if [ -f .env.example ]; then
                             cp .env.example .env
@@ -114,22 +111,18 @@ pipeline {
                         fi
                     fi
                     
-                    # Création de la base de données SQLite
                     mkdir -p database
                     touch database/database.sqlite
                     echo "Base de données SQLite créée : database/database.sqlite"
                     
-                    # Forcer la configuration SQLite dans .env
                     sed -i.bak '/^DB_CONNECTION=/d' .env
                     sed -i.bak '/^DB_DATABASE=/d' .env
                     echo "DB_CONNECTION=sqlite" >> .env
                     echo "DB_DATABASE=database/database.sqlite" >> .env
                     
-                    # Permissions des dossiers Laravel
                     mkdir -p storage/framework/{cache,sessions,views}
                     chmod -R 775 storage bootstrap/cache 2>/dev/null || true
                     
-                    # Génération de la clé d'application
                     php artisan key:generate --force
                     echo "✅ Configuration Laravel terminée"
                 '''
@@ -140,12 +133,8 @@ pipeline {
             steps {
                 sh '''
                     echo "========== INSTALLATION DES DÉPENDANCES =========="
-                    # Installation avec optimisation, en ignorant temporairement les prérequis système
                     ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
-                    
-                    # Regénération de l'autoloader après installation
                     ./composer dump-autoload --optimize
-                    
                     echo "✅ Dépendances installées avec succès"
                 '''
             }
@@ -155,10 +144,8 @@ pipeline {
             steps {
                 sh '''
                     echo "========== PRÉ-CACHE DE L'APPLICATION =========="
-                    # Nettoyage et mise en cache de la configuration
                     php artisan config:clear
                     php artisan config:cache
-                    
                     echo "✅ Cache de configuration généré"
                 '''
             }
@@ -168,7 +155,6 @@ pipeline {
             steps {
                 sh '''
                     echo "========== EXÉCUTION DES TESTS LARAVEL =========="
-                    # Exécution des tests avec arrêt au premier échec
                     php artisan test --stop-on-failure
                     
                     if [ $? -eq 0 ]; then
@@ -185,7 +171,6 @@ pipeline {
     post {
         success {
             echo "🎉 PIPELINE RÉUSSI ! L'environnement PHP 8.1 personnalisé fonctionne parfaitement."
-            // Archivage optionnel des logs pour débogage
             archiveArtifacts artifacts: 'storage/logs/*.log', allowEmptyArchive: true
         }
         failure {
@@ -203,7 +188,6 @@ pipeline {
             '''
         }
         always {
-            // CORRECTION ICI : Utilisation de 'sh' pour exécuter la commande date du shell
             sh 'echo "🕒 Pipeline terminé à : $(date)"'
         }
     }
