@@ -173,40 +173,40 @@ EOF
         }
 
         stage('Préparer Application') {
-            steps {
-                sh '''
-                    echo "========== PRÉPARATION FINALE =========="
-                    
-                    # Désactiver le platform check pour les commandes artisan
-                    export COMPOSER_PLATFORM_CHECK=0
-                    
-                    # Exécuter les commandes avec un wrapper qui ignore les erreurs de platform
-                    php -r "
-                        require_once 'vendor/autoload.php';
-                        \$app = require_once 'bootstrap/app.php';
-                        \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
-                        
-                        // Migrations
-                        try {
-                            \$kernel->call('migrate', ['--force' => true]);
-                            echo '✅ Migrations exécutées\\n';
-                        } catch (Exception \$e) {
-                            echo '⚠️ Migrations non exécutées: ' . \$e->getMessage() . '\\n';
-                        }
-                        
-                        // Cache config
-                        try {
-                            \$kernel->call('config:cache');
-                            echo '✅ Cache config généré\\n';
-                        } catch (Exception \$e) {
-                            echo '⚠️ Cache config non généré: ' . \$e->getMessage() . '\\n';
-                        }
-                    "
-                    
-                    echo "✅ Application prête pour les tests"
-                '''
-            }
-        }
+    steps {
+        sh '''
+            echo "========== PRÉPARATION FINALE =========="
+            
+            # Désactiver le platform check pour les commandes artisan
+            export COMPOSER_PLATFORM_CHECK=0
+            
+            # Exécuter les commandes avec un wrapper qui ignore les erreurs de platform
+            php -r "
+                require_once 'vendor/autoload.php';
+                \$app = require_once 'bootstrap/app.php';
+                \$kernel = \$app->make(Illuminate\\\\Contracts\\\\Console\\\\Kernel::class);
+                
+                // Migrations
+                try {
+                    \$kernel->call('migrate', ['--force' => true]);
+                    echo '✅ Migrations exécutées' . PHP_EOL;
+                } catch (Exception \$e) {
+                    echo '⚠️ Migrations non exécutées: ' . \$e->getMessage() . PHP_EOL;
+                }
+                
+                // Cache config
+                try {
+                    \$kernel->call('config:cache');
+                    echo '✅ Cache config généré' . PHP_EOL;
+                } catch (Exception \$e) {
+                    echo '⚠️ Cache config non généré: ' . \$e->getMessage() . PHP_EOL;
+                }
+            "
+            
+            echo "✅ Application prête pour les tests"
+        '''
+    }
+}
 
         stage('Exécuter Tests') {
             steps {
