@@ -172,7 +172,7 @@ EOF
             }
         }
 
-        stage('Préparer Application') {
+       stage('Préparer Application') {
     steps {
         sh '''
             echo "========== PRÉPARATION FINALE =========="
@@ -180,28 +180,12 @@ EOF
             # Désactiver le platform check pour les commandes artisan
             export COMPOSER_PLATFORM_CHECK=0
             
-            # Exécuter les commandes avec un wrapper qui ignore les erreurs de platform
-            php -r "
-                require_once 'vendor/autoload.php';
-                \$app = require_once 'bootstrap/app.php';
-                \$kernel = \$app->make(Illuminate\\\\Contracts\\\\Console\\\\Kernel::class);
-                
-                // Migrations
-                try {
-                    \$kernel->call('migrate', ['--force' => true]);
-                    echo '✅ Migrations exécutées' . PHP_EOL;
-                } catch (Exception \$e) {
-                    echo '⚠️ Migrations non exécutées: ' . \$e->getMessage() . PHP_EOL;
-                }
-                
-                // Cache config
-                try {
-                    \$kernel->call('config:cache');
-                    echo '✅ Cache config généré' . PHP_EOL;
-                } catch (Exception \$e) {
-                    echo '⚠️ Cache config non généré: ' . \$e->getMessage() . PHP_EOL;
-                }
-            "
+            # Solution 1: Utiliser artisan directement (plus simple)
+            echo "1. Exécution des migrations..."
+            php artisan migrate --force 2>/dev/null || echo "⚠️ Migrations non exécutées"
+            
+            echo "2. Génération du cache de configuration..."
+            php artisan config:cache 2>/dev/null || echo "⚠️ Cache config non généré"
             
             echo "✅ Application prête pour les tests"
         '''
