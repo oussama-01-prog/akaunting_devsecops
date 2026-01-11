@@ -26,13 +26,13 @@ pipeline {
         stage('Checkout du Code') {
             steps {
                 checkout([
-                    \$class: 'GitSCM',
+                    $class: 'GitSCM',
                     branches: [[name: '*/master']],
                     userRemoteConfigs: [[
                         url: 'https://github.com/oussama-01-prog/akaunting_devsecops.git'
                     ]],
                     extensions: [[
-                        \$class: 'CloneOption',
+                        $class: 'CloneOption',
                         shallow: true,
                         depth: 1,
                         noTags: true
@@ -78,11 +78,11 @@ pipeline {
                     echo "========== INSTALLATION DES DÉPENDANCES =========="
                     
                     # Installer les dépendances avec désactivation complète du platform check
-                    COMPOSER_PLATFORM_CHECK=0 ./composer install \\
-                        --no-interaction \\
-                        --prefer-dist \\
-                        --optimize-autoloader \\
-                        --ignore-platform-reqs \\
+                    COMPOSER_PLATFORM_CHECK=0 ./composer install \
+                        --no-interaction \
+                        --prefer-dist \
+                        --optimize-autoloader \
+                        --ignore-platform-reqs \
                         --no-scripts
                     
                     # SUPPRIMER le fichier platform_check.php (solution définitive)
@@ -121,10 +121,10 @@ EOF
                     if [ -f "composer.json" ]; then
                         echo "Désactivation du platform check dans composer.json..."
                         php -r '
-                            \$json = json_decode(file_get_contents("composer.json"), true);
-                            if (!isset(\$json["config"])) \$json["config"] = [];
-                            \$json["config"]["platform-check"] = false;
-                            file_put_contents("composer.json", json_encode(\$json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                            $json = json_decode(file_get_contents("composer.json"), true);
+                            if (!isset($json["config"])) $json["config"] = [];
+                            $json["config"]["platform-check"] = false;
+                            file_put_contents("composer.json", json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
                         '
                     fi
                     
@@ -226,8 +226,8 @@ EOF
                             require_once 'vendor/autoload.php';
                             
                             // Exécuter PHPUnit
-                            \\\$argv = ['phpunit', '--stop-on-failure', '--testdox', '--colors=never'];
-                            \\\$_SERVER['argv'] = \\\$argv;
+                            \$argv = ['phpunit', '--stop-on-failure', '--testdox', '--colors=never'];
+                            \$_SERVER['argv'] = \$argv;
                             
                             require 'vendor/phpunit/phpunit/phpunit';
                         " 2>/dev/null || echo "⚠️ Tests non exécutés avec wrapper"
@@ -446,7 +446,7 @@ EOF
                     
                     // Lire et analyser les résultats de sécurité
                     def securityReport = readFile(file: 'security-reports/security-summary.txt')
-                    echo "📋 Résumé de sécurité:\n\${securityReport}"
+                    echo "📋 Résumé de sécurité:\n${securityReport}"
                     
                     // Vérifier s'il y a des problèmes critiques
                     sh '''
@@ -497,11 +497,11 @@ EOF
             steps {
                 script {
                     // Générer la version du build
-                    def buildVersion = "\${BUILD_NUMBER}-\${new Date().format('yyyyMMddHHmmss')}"
-                    def buildArtifact = "akaunting-build-\${buildVersion}"
+                    def buildVersion = "${BUILD_NUMBER}-${new Date().format('yyyyMMddHHmmss')}"
+                    def buildArtifact = "akaunting-build-${buildVersion}"
                     
                     echo "========== BUILD DE L'APPLICATION =========="
-                    echo "Version du build: \${buildVersion}"
+                    echo "Version du build: ${buildVersion}"
                     
                     sh """
                         # 1. Nettoyage pour la production
@@ -542,7 +542,7 @@ EOF
                         cat > version.txt << VERSION_EOF
 Akaunting Application Build
 ===========================
-Version: \${buildVersion}
+Version: ${buildVersion}
 Build Date: \$(date)
 Build Number: \${BUILD_NUMBER}
 Git Commit: \$(git rev-parse --short HEAD 2>/dev/null || echo "N/A")
@@ -576,7 +576,7 @@ LICENSE
 EXCLUDE_EOF
                         
                         # Créer l'archive
-                        tar -czf \${buildArtifact}.tar.gz \\
+                        tar -czf ${buildArtifact}.tar.gz \\
                             --exclude-from=exclude-list.txt \\
                             --exclude="storage/logs" \\
                             --exclude="storage/framework/cache" \\
@@ -589,36 +589,36 @@ EXCLUDE_EOF
                         cat > build-manifest.json << MANIFEST_EOF
 {
     "application": "Akaunting",
-    "version": "\${buildVersion}",
-    "build_number": "\${BUILD_NUMBER}",
+    "version": "${buildVersion}",
+    "build_number": "${BUILD_NUMBER}",
     "build_date": "\$(date -Iseconds)",
     "dependencies": {
         "php": "\$(php --version | head -1 | cut -d' ' -f2)",
         "laravel": "\$(php artisan --version 2>/dev/null | cut -d' ' -f3 || echo 'unknown')"
     },
     "artifacts": [
-        "\${buildArtifact}.tar.gz",
-        "version.txt",
-        "build-manifest.json"
-    ],
-    "security_scan": {
-        "performed": true,
-        "reports": "security-reports/",
-        "timestamp": "\$(date -Iseconds)"
-    },
-    "checksum": "\$(sha256sum \${buildArtifact}.tar.gz | cut -d' ' -f1)"
-}
+                        "${buildArtifact}.tar.gz",
+                        "version.txt",
+                        "build-manifest.json"
+                    ],
+                    "security_scan": {
+                        "performed": true,
+                        "reports": "security-reports/",
+                        "timestamp": "\$(date -Iseconds)"
+                    },
+                    "checksum": "\$(sha256sum ${buildArtifact}.tar.gz | cut -d' ' -f1)"
+                }
 MANIFEST_EOF
                         
                         # 7. Vérification du build
                         echo "7. Vérification du build..."
-                        if [ -f "\${buildArtifact}.tar.gz" ]; then
-                            SIZE=\$(du -h \${buildArtifact}.tar.gz | cut -f1)
-                            CHECKSUM=\$(sha256sum \${buildArtifact}.tar.gz | cut -d' ' -f1)
+                        if [ -f "${buildArtifact}.tar.gz" ]; then
+                            SIZE=\$(du -h ${buildArtifact}.tar.gz | cut -f1)
+                            CHECKSUM=\$(sha256sum ${buildArtifact}.tar.gz | cut -d' ' -f1)
                             echo "✅ Build créé avec succès"
                             echo "📦 Taille: \$SIZE"
                             echo "🔐 Checksum: \$CHECKSUM"
-                            echo "🏷️  Version: \${buildVersion}"
+                            echo "🏷️  Version: ${buildVersion}"
                         else
                             echo "❌ Échec de création du build"
                             exit 1
@@ -761,7 +761,8 @@ HTML_EOF
                 echo "📊 RÉSUMÉ DU PIPELINE"
                 echo "===================="
                 echo "Build: #\${BUILD_NUMBER}"
-                echo "Version: \$(ls -t akaunting-build-*.tar.gz 2>/dev/null | head -1 | sed 's/akaunting-build-//' | sed 's/.tar.gz//' || echo "N/A")"
+                BUILD_VERSION=\$(ls -t akaunting-build-*.tar.gz 2>/dev/null | head -1 | sed 's/akaunting-build-//' | sed 's/.tar.gz//')
+                echo "Version: \${BUILD_VERSION:-N/A}"
                 echo "Date: \$(date)"
                 echo "Durée: \${currentBuild.durationString}"
                 echo ""
