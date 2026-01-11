@@ -144,23 +144,25 @@ pipeline {
     }
 }
 
-       stage('Configurer Laravel') {
+     stage('Configurer Laravel') {
     steps {
-        sh '''
-            echo "========== CONFIGURATION LARAVEL =========="
+        script {
+            // Générer une clé directement
+            def appKey = sh(script: 'openssl rand -base64 32', returnStdout: true).trim()
             
-            # Préparation des dossiers
-            mkdir -p storage/framework/{cache,sessions,views}
-            mkdir -p database
-            
-            # Permissions
-            chmod -R 775 storage bootstrap/cache 2>/dev/null || true
-            
-            # Configuration .env minimal pour tests
-            cat > .env << 'EOF'
+            sh """
+                echo "========== CONFIGURATION LARAVEL =========="
+                
+                # Préparation des dossiers
+                mkdir -p storage/framework/{cache,sessions,views}
+                mkdir -p database
+                chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+                
+                # Configuration .env
+                cat > .env << EOF
 APP_NAME="Akaunting"
 APP_ENV=testing
-APP_KEY=
+APP_KEY=base64:${appKey}
 APP_DEBUG=true
 APP_URL=http://localhost
 
@@ -177,34 +179,21 @@ LOG_LEVEL=debug
 
 MAIL_MAILER=log
 
-# Désactiver les fonctionnalités non nécessaires pour les tests
 FIREWALL_ENABLED=false
 MODEL_CACHE_ENABLED=false
 DEBUGBAR_ENABLED=false
 EOF
-            
-            # Créer base SQLite
-            touch database/database.sqlite
-            
-            # Régénérer l'autoloader
-            ./composer dump-autoload
-            
-            # Générer la clé d'application - CORRECTION DE LA SYNTAXE
-            echo "Génération de la clé d'application..."
-            php -r "
-                require_once 'vendor/autoload.php';
                 
-                // Créer l'application
-                \$app = require_once 'bootstrap/app.php';
-                \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+                # Créer base SQLite
+                touch database/database.sqlite
                 
-                // Générer la clé
-                \$status = \$kernel->call('key:generate', ['--force' => true]);
-                exit(\$status);
-            "
-            
-            echo "✅ Configuration Laravel terminée"
-        '''
+                # Régénérer l'autoloader
+                ./composer dump-autoload
+                
+                echo "✅ Configuration Laravel terminée"
+                echo "✅ Clé générée: base64:${appKey}"
+            """
+        }
     }
 }
         stage('Préparer l\'Application') {
