@@ -23,7 +23,7 @@ pipeline {
                     try {
                         sh 'which php || echo "PHP non trouvé dans PATH"'
                     } catch (Exception e) {
-                        echo "⚠️ PHP non trouvé, tentative d'installation..."
+                        echo " PHP non trouvé, tentative d'installation..."
                     }
                 }
             }
@@ -58,10 +58,10 @@ pipeline {
                             which php || exit 1
                             echo "Version PHP : $(php --version | head -1)"
                             echo "PHP_VERSION_ID : $(php -r 'echo PHP_VERSION_ID;')"
-                            echo "✅ PHP vérifié avec succès"
+                            echo " PHP vérifié avec succès"
                         '''
                     } catch (Exception e) {
-                        echo "❌ PHP non disponible. Installation de PHP 8.1..."
+                        echo " PHP non disponible. Installation de PHP 8.1..."
                         // Installation de PHP si nécessaire
                         sh '''
                             apt-get update && apt-get install -y software-properties-common
@@ -83,7 +83,7 @@ pipeline {
                     mkdir -p storage/framework/{cache,sessions,views}
                     mkdir -p database
                     chmod -R 775 storage bootstrap/cache 2>/dev/null || true
-                    echo "✅ Environnement nettoyé et préparé"
+                    echo " Environnement nettoyé et préparé"
                 '''
             }
         }
@@ -95,7 +95,7 @@ pipeline {
                     
                     # Vérifier si composer est déjà installé
                     if command -v composer >/dev/null 2>&1; then
-                        echo "✅ Composer déjà installé globalement"
+                        echo " Composer déjà installé globalement"
                         composer --version
                     else
                         # Installer Composer dans le répertoire courant
@@ -107,7 +107,7 @@ pipeline {
                         # S'assurer que composer est exécutable
                         chmod +x composer
                         
-                        echo "✅ Composer installé localement"
+                        echo " Composer installé localement"
                         ./composer --version
                     fi
                 '''
@@ -142,7 +142,7 @@ pipeline {
                     echo "Exécution des scripts Composer..."
                     COMPOSER_PLATFORM_CHECK=0 $COMPOSER_CMD dump-autoload --optimize
                     
-                    echo "✅ Dépendances installées"
+                    echo " Dépendances installées"
                 '''
             }
         }
@@ -177,7 +177,7 @@ EOF
                         '
                     fi
                     
-                    echo "✅ Platform check désactivé"
+                    echo " Platform check désactivé"
                 '''
             }
         }
@@ -217,7 +217,7 @@ EOF
                     touch database/database.sqlite
                     chmod 666 database/database.sqlite
                     
-                    echo "✅ Application configurée"
+                    echo " Application configurée"
                 '''
             }
         }
@@ -231,12 +231,12 @@ EOF
                     export COMPOSER_PLATFORM_CHECK=0
                     
                     echo "1. Exécution des migrations..."
-                    php artisan migrate --force 2>/dev/null || echo "⚠️ Migrations non exécutées"
+                    php artisan migrate --force 2>/dev/null || echo " Migrations non exécutées"
                     
                     echo "2. Génération du cache de configuration..."
-                    php artisan config:cache 2>/dev/null || echo "⚠️ Cache config non généré"
+                    php artisan config:cache 2>/dev/null || echo " Cache config non généré"
                     
-                    echo "✅ Application prête pour les tests"
+                    echo " Application prête pour les tests"
                 '''
             }
         }
@@ -254,11 +254,11 @@ EOF
                         echo "Utilisation de PHPUnit..."
                         php -d error_reporting=0 vendor/bin/phpunit --stop-on-failure --testdox --colors=never 2>/dev/null || echo "⚠️ Tests PHPUnit échoués"
                     else
-                        echo "⚠️ PHPUnit non trouvé, tentative avec artisan test..."
+                        echo " PHPUnit non trouvé, tentative avec artisan test..."
                         php artisan test --stop-on-failure 2>/dev/null || echo "⚠️ Tests artisan échoués"
                     fi
                     
-                    echo "✅ Tests exécutés"
+                    echo " Tests exécutés"
                 '''
             }
         }
@@ -277,9 +277,9 @@ EOF
                     if ./composer --version 2>&1 | grep -q "Composer version 2"; then
                         echo "Exécution de composer audit..."
                         ./composer audit --format=json > security-reports/composer-audit.json 2>/dev/null || echo "⚠️ Audit Composer non disponible"
-                        echo "✅ Audit Composer terminé"
+                        echo " Audit Composer terminé"
                     else
-                        echo "⚠️ Composer 2+ requis pour l'audit"
+                        echo " Composer 2+ requis pour l'audit"
                     fi
                     
                     # 2. Vérification simplifiée de configuration
@@ -288,9 +288,9 @@ EOF
                         echo "Fichier .env trouvé" > security-reports/config-check.txt
                         echo "APP_KEY défini: $(grep -q "^APP_KEY=" .env && echo "Oui" || echo "Non")" >> security-reports/config-check.txt
                         echo "APP_DEBUG: $(grep "^APP_DEBUG=" .env | cut -d= -f2 || echo "Non défini")" >> security-reports/config-check.txt
-                        echo "✅ Configuration vérifiée"
+                        echo " Configuration vérifiée"
                     else
-                        echo "❌ Fichier .env non trouvé" > security-reports/config-check.txt
+                        echo " Fichier .env non trouvé" > security-reports/config-check.txt
                     fi
                     
                     # 3. Recherche de secrets dans le code
@@ -315,10 +315,10 @@ Projet: Akaunting
 ====================================
 
 ANALYSES EFFECTUÉES:
-1. ✅ Audit des dépendances Composer
-2. ✅ Vérification de la configuration
-3. ✅ Recherche de secrets dans le code
-4. ✅ Vérification des permissions
+1.  Audit des dépendances Composer
+2.  Vérification de la configuration
+3.  Recherche de secrets dans le code
+4.  Vérification des permissions
 
 RÉSULTATS:
 - Consultez les fichiers dans security-reports/
@@ -326,7 +326,7 @@ RÉSULTATS:
 === FIN DU RAPPORT ===
 EOF
                     
-                    echo "✅ Analyse de sécurité terminée"
+                    echo " Analyse de sécurité terminée"
                 '''
             }
             post {
@@ -375,14 +375,14 @@ EOF
                         # Vérifier le résultat
                         if [ \$TAR_EXIT_CODE -eq 0 ] || [ \$TAR_EXIT_CODE -eq 1 ]; then
                             if [ -f "akaunting-build-${buildVersion}.tar.gz" ]; then
-                                echo "✅ Build créé avec succès: akaunting-build-${buildVersion}.tar.gz"
+                                echo " Build créé avec succès: akaunting-build-${buildVersion}.tar.gz"
                                 echo "Taille: \$(du -h akaunting-build-${buildVersion}.tar.gz | cut -f1)"
                             else
-                                echo "❌ L'archive n'a pas été créée"
+                                echo " L'archive n'a pas été créée"
                                 exit 1
                             fi
                         else
-                            echo "❌ Erreur lors de la création de l'archive (code: \$TAR_EXIT_CODE)"
+                            echo " Erreur lors de la création de l'archive (code: \$TAR_EXIT_CODE)"
                             exit 1
                         fi
                     """
@@ -398,12 +398,12 @@ EOF
 
     post {
         success {
-            echo "🎉 PIPELINE RÉUSSI !"
+            echo " PIPELINE RÉUSSI !"
             archiveArtifacts artifacts: 'storage/logs/*.log', allowEmptyArchive: true
             archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
         }
         failure {
-            echo "💥 PIPELINE EN ÉCHEC"
+            echo " PIPELINE EN ÉCHEC"
             sh '''
                 echo "========== DIAGNOSTIC =========="
                 echo "User: \$(whoami)"
@@ -414,7 +414,7 @@ EOF
             '''
         }
         always {
-            echo "🕒 Pipeline terminé"
+            echo " Pipeline terminé"
         }
     }
 }
