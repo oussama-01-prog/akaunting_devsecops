@@ -338,39 +338,47 @@ EOF
 
         // ------------------- BUILD -------------------
         stage('Build de l\'Application') {
-            steps {
-                script {
-                    def buildVersion = "${BUILD_NUMBER}-${new Date().format('yyyyMMddHHmmss')}"
-                    
-                    echo "========== BUILD DE L'APPLICATION =========="
-                    echo "Version du build: ${buildVersion}"
-                    
-                    sh """
-                        # Créer le fichier de version
-                        echo "Akaunting Build ${buildVersion}" > version.txt
-                        echo "Build Date: \$(date)" >> version.txt
-                        echo "Build Number: ${BUILD_NUMBER}" >> version.txt
-                        
-                        # Créer l'archive
-                        tar -czf akaunting-build-${buildVersion}.tar.gz \
-                            --exclude=".git" \
-                            --exclude="node_modules" \
-                            --exclude="tests" \
-                            --exclude="*.log" \
-                            --exclude="security-reports" \
-                            .
-                        
-                        echo "✅ Build créé: akaunting-build-${buildVersion}.tar.gz"
-                    """
-                }
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'akaunting-build-*.tar.gz,version.txt', allowEmptyArchive: true
-                }
-            }
+    steps {
+        script {
+            def buildVersion = "${BUILD_NUMBER}-${new Date().format('yyyyMMddHHmmss')}"
+            
+            echo "========== BUILD DE L'APPLICATION =========="
+            echo "Version du build: ${buildVersion}"
+            
+            sh """
+                # Créer le fichier de version
+                echo "Akaunting Build ${buildVersion}" > version.txt
+                echo "Build Date: \$(date)" >> version.txt
+                echo "Build Number: ${BUILD_NUMBER}" >> version.txt
+                
+                # Créer l'archive avec plus d'exclusions
+                tar -czf akaunting-build-${buildVersion}.tar.gz \\
+                    --exclude=".git" \\
+                    --exclude="node_modules" \\
+                    --exclude="tests" \\
+                    --exclude="*.log" \\
+                    --exclude="storage/logs" \\
+                    --exclude="storage/framework/cache" \\
+                    --exclude="storage/framework/sessions" \\
+                    --exclude="storage/framework/views" \\
+                    --exclude="bootstrap/cache" \\
+                    --exclude="security-reports" \\
+                    --exclude="vendor/bin" \\
+                    --exclude=".env" \\
+                    --exclude="composer" \\
+                    --exclude="composer.phar" \\
+                    .
+                
+                echo "✅ Build créé: akaunting-build-${buildVersion}.tar.gz"
+            """
         }
     }
+    post {
+        always {
+            archiveArtifacts artifacts: 'akaunting-build-*.tar.gz,version.txt', allowEmptyArchive: true
+        }
+    }
+}
 
     post {
         success {
