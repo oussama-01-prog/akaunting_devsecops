@@ -203,7 +203,8 @@ pipeline {
             '''
         }
         always {
-            echo "🕒 Pipeline terminé à : $(date)"
+            // CORRECTION ICI : Utilisation de 'sh' pour exécuter la commande date du shell
+            sh 'echo "🕒 Pipeline terminé à : $(date)"'
         }
     }
 }
