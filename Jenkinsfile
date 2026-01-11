@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        PATH = "/usr/local/php8.1/bin:/usr/local/bin:${env.PATH}"
+        PATH = "/usr/local/php8.1/bin:${env.PATH}"
         COMPOSER_ALLOW_SUPERUSER = 1
         COMPOSER_PLATFORM_CHECK = 0
     }
@@ -44,7 +44,7 @@ pipeline {
             steps {
                 sh '''
                     echo "========== NETTOYAGE =========="
-                    rm -rf vendor composer.lock
+                    rm -rf vendor composer.lock composer composer.phar
                     mkdir -p storage/framework/{cache,sessions,views}
                     mkdir -p database
                     chmod -R 775 storage bootstrap/cache 2>/dev/null || true
@@ -52,16 +52,32 @@ pipeline {
             }
         }
 
-        stage('Installer Composer et Dépendances') {
+        stage('Installer Composer Localement') {
             steps {
                 sh '''
-                    echo "========== INSTALLATION COMPOSER & DÉPENDANCES =========="
+                    echo "========== INSTALLATION DE COMPOSER =========="
                     
-                    # Télécharger Composer
-                    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+                    # Installer Composer dans le répertoire courant
+                    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+                    php composer-setup.php --install-dir=. --filename=composer
+                    php -r "unlink('composer-setup.php');"
+                    
+                    # S'assurer que composer est exécutable
+                    chmod +x composer
+                    
+                    echo "✅ Composer installé localement"
+                    ./composer --version
+                '''
+            }
+        }
+
+        stage('Installer les Dépendances') {
+            steps {
+                sh '''
+                    echo "========== INSTALLATION DES DÉPENDANCES =========="
                     
                     # Installer les dépendances avec désactivation complète du platform check
-                    COMPOSER_PLATFORM_CHECK=0 composer install \
+                    COMPOSER_PLATFORM_CHECK=0 ./composer install \
                         --no-interaction \
                         --prefer-dist \
                         --optimize-autoloader \
@@ -102,6 +118,11 @@ if ($issues) {
 EOF
                         echo "✅ platform_check.php corrigé pour PHP 8.1"
                     fi
+                    
+                    # Exécuter les scripts manuellement
+                    echo "Exécution des scripts Composer..."
+                    COMPOSER_PLATFORM_CHECK=0 ./composer run-script post-install-cmd 2>/dev/null || true
+                    COMPOSER_PLATFORM_CHECK=0 ./composer run-script post-autoload-dump 2>/dev/null || true
                     
                     echo "✅ Dépendances installées"
                 '''
@@ -144,7 +165,7 @@ EOF
                     chmod 666 database/database.sqlite
                     
                     # Régénérer autoloader
-                    composer dump-autoload --optimize
+                    COMPOSER_PLATFORM_CHECK=0 ./composer dump-autoload --optimize
                     
                     echo "✅ Application configurée"
                 '''
@@ -160,7 +181,7 @@ EOF
                     export COMPOSER_PLATFORM_CHECK=0
                     
                     # Exécuter les commandes avec un wrapper qui ignore les erreurs de platform
-                    php -d error_reporting=E_ALL & ~E_USER_ERROR -r "
+                    php -r "
                         require_once 'vendor/autoload.php';
                         \$app = require_once 'bootstrap/app.php';
                         \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
@@ -197,13 +218,13 @@ EOF
                     
                     if [ -f "vendor/bin/phpunit" ]; then
                         # Utiliser PHPUnit directement avec suppression des erreurs de platform
-                        php -d error_reporting=E_ALL & ~E_USER_ERROR vendor/bin/phpunit \
+                        vendor/bin/phpunit \
                             --stop-on-failure \
                             --testdox \
                             --colors=never
                     else
                         # Fallback sur artisan test
-                        php -d error_reporting=E_ALL & ~E_USER_ERROR -r "
+                        php -r "
                             require_once 'vendor/autoload.php';
                             \$app = require_once 'bootstrap/app.php';
                             \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
@@ -235,13 +256,13 @@ EOF
             sh '''
                 echo "========== DIAGNOSTIC =========="
                 echo "PHP: $(php --version | head -1)"
-                echo "Composer: $(composer --version 2>/dev/null || echo 'N/A')"
+                echo "Composer: $(./composer --version 2>/dev/null || echo 'N/A')"
                 echo ""
-                echo "Contenu de vendor/composer/platform_check.php:"
-                head -30 vendor/composer/platform_check.php 2>/dev/null || echo "Fichier non trouvé"
+                echo "Structure du projet:"
+                ls -la
                 echo ""
-                echo "Fichier .env (extrait):"
-                head -15 .env 2>/dev/null || echo ".env non trouvé"
+                echo "Dossier vendor:"
+                ls -la vendor/ 2>/dev/null | head -10 || echo "vendor/ non trouvé"
             '''
         }
         always {
