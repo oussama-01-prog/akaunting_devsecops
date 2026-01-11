@@ -338,47 +338,63 @@ EOF
 
         // ------------------- BUILD -------------------
         stage('Build de l\'Application') {
-    steps {
-        script {
-            def buildVersion = "${BUILD_NUMBER}-${new Date().format('yyyyMMddHHmmss')}"
-            
-            echo "========== BUILD DE L'APPLICATION =========="
-            echo "Version du build: ${buildVersion}"
-            
-            sh """
-                # Créer le fichier de version
-                echo "Akaunting Build ${buildVersion}" > version.txt
-                echo "Build Date: \$(date)" >> version.txt
-                echo "Build Number: ${BUILD_NUMBER}" >> version.txt
-                
-                # Créer l'archive avec plus d'exclusions
-                tar -czf akaunting-build-${buildVersion}.tar.gz \\
-                    --exclude=".git" \\
-                    --exclude="node_modules" \\
-                    --exclude="tests" \\
-                    --exclude="*.log" \\
-                    --exclude="storage/logs" \\
-                    --exclude="storage/framework/cache" \\
-                    --exclude="storage/framework/sessions" \\
-                    --exclude="storage/framework/views" \\
-                    --exclude="bootstrap/cache" \\
-                    --exclude="security-reports" \\
-                    --exclude="vendor/bin" \\
-                    --exclude=".env" \\
-                    --exclude="composer" \\
-                    --exclude="composer.phar" \\
-                    .
-                
-                echo "✅ Build créé: akaunting-build-${buildVersion}.tar.gz"
-            """
+            steps {
+                script {
+                    def buildVersion = "${BUILD_NUMBER}-${new Date().format('yyyyMMddHHmmss')}"
+                    
+                    echo "========== BUILD DE L'APPLICATION =========="
+                    echo "Version du build: ${buildVersion}"
+                    
+                    sh """
+                        # Créer le fichier de version
+                        echo "Akaunting Build ${buildVersion}" > version.txt
+                        echo "Build Date: \$(date)" >> version.txt
+                        echo "Build Number: ${BUILD_NUMBER}" >> version.txt
+                        
+                        # Créer l'archive avec exclusions supplémentaires
+                        EXCLUDE_LIST=""
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=.git"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=node_modules"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=tests"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=*.log"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=security-reports"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=storage/logs/*"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=bootstrap/cache/*"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=storage/framework/cache/*"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=storage/framework/sessions/*"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=storage/framework/views/*"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=composer"
+                        EXCLUDE_LIST="\${EXCLUDE_LIST} --exclude=composer.phar"
+                        
+                        # Créer l'archive avec gestion d'erreurs
+                        set +e
+                        tar -czf akaunting-build-${buildVersion}.tar.gz \${EXCLUDE_LIST} .
+                        TAR_EXIT_CODE=\$?
+                        set -e
+                        
+                        # Vérifier le résultat
+                        if [ \$TAR_EXIT_CODE -eq 0 ] || [ \$TAR_EXIT_CODE -eq 1 ]; then
+                            if [ -f "akaunting-build-${buildVersion}.tar.gz" ]; then
+                                echo "✅ Build créé avec succès: akaunting-build-${buildVersion}.tar.gz"
+                                echo "Taille: \$(du -h akaunting-build-${buildVersion}.tar.gz | cut -f1)"
+                            else
+                                echo "❌ L'archive n'a pas été créée"
+                                exit 1
+                            fi
+                        else
+                            echo "❌ Erreur lors de la création de l'archive (code: \$TAR_EXIT_CODE)"
+                            exit 1
+                        fi
+                    """
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'akaunting-build-*.tar.gz,version.txt', allowEmptyArchive: true
+                }
+            }
         }
     }
-    post {
-        always {
-            archiveArtifacts artifacts: 'akaunting-build-*.tar.gz,version.txt', allowEmptyArchive: true
-        }
-    }
-}
 
     post {
         success {
