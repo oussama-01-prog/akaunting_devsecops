@@ -96,29 +96,50 @@ pipeline {
             }
         }
 
-       stage('Installer/Rafraîchir les Dépendances') {
+  stage('Installer/Rafraîchir les Dépendances') {
     steps {
         sh '''
             echo "========== INSTALLATION DES DÉPENDANCES =========="
             
-            # Nettoyage complet pour éviter les conflits
-            echo "Nettoyage préalable..."
-            rm -rf vendor composer.lock 2>/dev/null || true
+            # Étape CRITIQUE : S'assurer que le workspace appartient à l'utilisateur Jenkins
+            echo "Correction des permissions du workspace..."
+            whoami
+            pwd
             
-            # Installation fraîche systématiquement (plus fiable)
-            echo "Installation fraîche des dépendances..."
-            ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+            # Supprimer tout et repartir de zéro
+            rm -rf vendor composer.lock composer composer.phar 2>/dev/null || true
             
-            # Vérification et correction des permissions
-            echo "Vérification des permissions..."
+            # Installation de Composer avec le bon propriétaire
+            echo "Installation de Composer..."
+            php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+            php composer-setup.php --install-dir=. --filename=composer --version=2.2.22
+            php -r "unlink('composer-setup.php');"
+            
+            # S'assurer que composer est exécutable
+            chmod +x composer
+            
+            # Créer le dossier vendor avec les bonnes permissions AVANT l'installation
+            echo "Préparation du dossier vendor..."
+            mkdir -p vendor
+            chmod -R 777 vendor 2>/dev/null || true
+            
+            # Installation avec USER spécifié pour éviter les problèmes de permissions
+            echo "Installation des dépendances..."
+            # Utiliser --no-scripts pour éviter les problèmes d'exécution
+            ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs --no-scripts
+            
+            # Corriger les permissions APRÈS installation
+            echo "Correction finale des permissions..."
             if [ -d "vendor" ]; then
-                chmod -R u+rwX vendor
-                find vendor -type f -name "*.php" -exec chmod 644 {} \\;
+                find vendor -type d -exec chmod 755 {} \\;
+                find vendor -type f -exec chmod 644 {} \\;
             fi
             
-            # Régénération de l'autoloader
-            ./composer dump-autoload --optimize
-            echo "✅ Dépendances installées et autoloader régénéré"
+            # Exécuter les scripts manuellement après correction des permissions
+            echo "Exécution des scripts Composer..."
+            ./composer run-script post-install-cmd 2>/dev/null || echo "Script post-install non exécuté"
+            
+            echo "✅ Dépendances installées avec succès"
         '''
     }
 }
