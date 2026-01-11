@@ -145,47 +145,76 @@ pipeline {
 }
 
         stage('Configurer Laravel') {
-            steps {
-                sh '''
-                    echo "========== CONFIGURATION LARAVEL =========="
-                    # Préparation des dossiers
-                    mkdir -p storage/framework/{cache,sessions,views}
-                    mkdir -p database
-                    
-                    # Permissions
-                    chmod -R 775 storage bootstrap/cache 2>/dev/null || true
-                    
-                    # Configuration .env
-                    if [ ! -f .env ]; then
-                        if [ -f .env.example ]; then
-                            cp .env.example .env
-                            echo ".env créé à partir de .env.example"
-                        else
-                            echo "# Configuration Laravel" > .env
-                        fi
-                    fi
-                    
-                    # Forcer SQLite
-                    sed -i.bak '/^DB_CONNECTION=/d' .env
-                    sed -i.bak '/^DB_DATABASE=/d' .env
-                    echo "DB_CONNECTION=mysql" >> .env
-                    echo "DB_DATABASE=database/database.sqlite" >> .env
-                    
-                    # Créer la base de données
-                    touch database/database.sqlite
-                    echo "Base de données SQLite créée"
-                    
-                    # Nettoyer les caches avant de générer la clé
-                    php artisan config:clear 2>/dev/null || echo "Cache config déjà vide"
-                    php artisan cache:clear 2>/dev/null || echo "Cache déjà vide"
-                    
-                    # Générer la clé d'application
-                    php artisan key:generate --force
-                    echo "✅ Configuration Laravel terminée"
-                '''
-            }
-        }
+    steps {
+        sh '''
+            echo "========== CONFIGURATION LARAVEL =========="
+            
+            # Préparation des dossiers
+            mkdir -p storage/framework/{cache,sessions,views}
+            mkdir -p database
+            
+            # Permissions
+            chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+            
+            # Configuration .env pour MySQL (comme dans votre projet)
+            cat > .env << 'EOF'
+APP_NAME=Akaunting
+APP_ENV=testing
+APP_LOCALE=en-GB
+APP_INSTALLED=false
+APP_KEY=
+APP_DEBUG=true
+APP_SCHEDULE_TIME="09:00"
+APP_URL=http://localhost
 
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=akaunting_test
+DB_USERNAME=root
+DB_PASSWORD=""
+
+BROADCAST_DRIVER=log
+CACHE_DRIVER=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+
+LOG_CHANNEL=stack
+LOG_DEPRECATIONS_CHANNEL=null
+LOG_LEVEL=debug
+
+MAIL_MAILER=log
+MAIL_HOST=localhost
+MAIL_PORT=2525
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_ENCRYPTION=null
+MAIL_FROM_NAME=null
+MAIL_FROM_ADDRESS=null
+
+FIREWALL_ENABLED=false
+MODEL_CACHE_ENABLED=false
+DEBUGBAR_EDITOR=vscode
+IGNITION_EDITOR=vscode
+PWA_ENABLED=false
+EOF
+            
+            # Nettoyer les caches
+            ./composer dump-autoload
+            
+            # Générer la clé d'application
+            php -r "
+                require_once 'vendor/autoload.php';
+                \$app = require_once 'bootstrap/app.php';
+                \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+                \$status = \$kernel->call('key:generate', ['--force' => true]);
+                exit(\$status);
+            "
+            
+            echo "✅ Configuration Laravel terminée"
+        '''
+    }
+}
         stage('Préparer l\'Application') {
             steps {
                 sh '''
