@@ -425,7 +425,7 @@ EOF
             }
         }
 
-        stage('Validation de Sécurité') {
+               stage('Validation de Sécurité') {
             steps {
                 script {
                     echo "========== VALIDATION DE SÉCURITÉ =========="
@@ -440,19 +440,36 @@ EOF
                         
                         # Vérifier les problèmes de configuration Laravel
                         if [ -f "security-reports/laravel-config.json" ]; then
-                            if grep -q "critical" security-reports/laravel-config.json; then
+                            # Afficher le contenu pour debug
+                            echo "Contenu du rapport Laravel:"
+                            head -50 security-reports/laravel-config.json
+                            
+                            # Extraire le nombre de problèmes critiques
+                            CRITICAL_COUNT=$(grep -o '"critical": [0-9]*' security-reports/laravel-config.json | awk -F': ' '{print $2}' | head -1)
+                            if [ -z "$CRITICAL_COUNT" ]; then
+                                CRITICAL_COUNT=0
+                            fi
+                            
+                            echo "Nombre de problèmes critiques détectés: $CRITICAL_COUNT"
+                            
+                            if [ "$CRITICAL_COUNT" -gt 0 ]; then
                                 echo "❌ Problèmes critiques de configuration Laravel détectés"
                                 echo "Consultez le rapport: security-reports/laravel-config.json"
                                 exit 1
                             else
                                 echo "✅ Aucun problème critique de configuration Laravel"
                             fi
+                        else
+                            echo "⚠️ Fichier laravel-config.json non trouvé"
                         fi
                         
-                        # Vérifier si des secrets ont été trouvés (plus de 5 lignes)
+                        # Vérifier si des secrets ont été trouvés (plus de 10 lignes de résultats)
                         if [ -f "security-reports/secrets-report.txt" ]; then
                             LINE_COUNT=$(wc -l < security-reports/secrets-report.txt 2>/dev/null || echo "0")
-                            if [ "$LINE_COUNT" -gt 10 ]; then
+                            # Compter seulement les lignes de résultats (exclure les en-têtes)
+                            RESULT_LINES=$(grep -c "password\|secret\|key" security-reports/secrets-report.txt 2>/dev/null || echo "0")
+                            
+                            if [ "$RESULT_LINES" -gt 5 ]; then
                                 echo "⚠️ Des patterns sensibles ont été détectés dans le code"
                                 echo "Consultez le rapport: security-reports/secrets-report.txt"
                             else
