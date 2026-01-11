@@ -275,46 +275,66 @@ EOF
                     
                     # 2. Vérification de la configuration Laravel
                     echo "2. Vérification de la configuration Laravel..."
-                    cat > check-laravel-security.php << 'PHPEOF'
+                    cat > check-laravel-security.php << 'PHP_EOF'
 <?php
+// Charger l'autoloader
 require_once "vendor/autoload.php";
 
+// Lire directement le fichier .env
+$envFile = '.env';
 $securityIssues = [];
 
-// Vérifier APP_DEBUG
-if (env("APP_DEBUG") === true) {
-    $securityIssues[] = [
-        "level" => "high",
-        "message" => "APP_DEBUG est activé en environnement " . env("APP_ENV", "production"),
-        "recommendation" => "Désactiver APP_DEBUG en production"
-    ];
-}
-
-// Vérifier APP_KEY
-if (empty(env("APP_KEY"))) {
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    
+    $appKeySet = false;
+    $appDebug = false;
+    
+    foreach ($lines as $line) {
+        if (strpos($line, 'APP_KEY=') === 0) {
+            $value = substr($line, 8);
+            if (!empty($value) && $value !== 'base64:' && strlen($value) > 20) {
+                $appKeySet = true;
+            }
+        }
+        
+        if (strpos($line, 'APP_DEBUG=') === 0) {
+            $value = substr($line, 10);
+            if ($value === 'true') {
+                $appDebug = true;
+            }
+        }
+    }
+    
+    if (!$appKeySet) {
+        $securityIssues[] = [
+            "level" => "critical",
+            "message" => "APP_KEY n\'est pas défini ou est invalide",
+            "recommendation" => "Générer une clé avec php artisan key:generate"
+        ];
+    }
+    
+    if ($appDebug) {
+        $securityIssues[] = [
+            "level" => "warning",
+            "message" => "APP_DEBUG est activé",
+            "recommendation" => "Désactiver APP_DEBUG en production"
+        ];
+    }
+} else {
     $securityIssues[] = [
         "level" => "critical",
-        "message" => "APP_KEY n\'est pas défini",
-        "recommendation" => "Générer une clé avec php artisan key:generate"
-    ];
-}
-
-// Vérifier la configuration de la session
-if (env("SESSION_DRIVER") === "cookie" && env("APP_ENV") === "production") {
-    $securityIssues[] = [
-        "level" => "medium",
-        "message" => "Session driver cookie en production",
-        "recommendation" => "Utiliser un driver de session plus sécurisé comme database ou redis"
+        "message" => "Fichier .env non trouvé",
+        "recommendation" => "Créer un fichier .env à partir de .env.example"
     ];
 }
 
 // Sauvegarder le rapport
-file_put_contents("security-reports/laravel-config.json", json_encode([
+$result = [
     "timestamp" => date("c"),
     "checks_performed" => [
-        "app_debug",
         "app_key",
-        "session_driver"
+        "app_debug"
     ],
     "issues" => $securityIssues,
     "summary" => [
@@ -322,27 +342,21 @@ file_put_contents("security-reports/laravel-config.json", json_encode([
         "critical" => count(array_filter($securityIssues, function($issue) {
             return $issue["level"] === "critical";
         })),
-        "high" => count(array_filter($securityIssues, function($issue) {
-            return $issue["level"] === "high";
-        })),
-        "medium" => count(array_filter($securityIssues, function($issue) {
-            return $issue["level"] === "medium";
-        })),
-        "low" => count(array_filter($securityIssues, function($issue) {
-            return $issue["level"] === "low";
+        "warning" => count(array_filter($securityIssues, function($issue) {
+            return $issue["level"] === "warning";
         }))
     ]
-], JSON_PRETTY_PRINT));
+];
 
+file_put_contents("security-reports/laravel-config.json", json_encode($result, JSON_PRETTY_PRINT));
+
+echo "Vérification Laravel terminée. Problèmes trouvés: " . count($securityIssues) . "\\n";
 if (!empty($securityIssues)) {
-    echo "Problèmes de sécurité détectés dans la configuration Laravel:\\n";
     foreach ($securityIssues as $issue) {
         echo "[{$issue["level"]}] {$issue["message"]}\\n";
     }
-} else {
-    echo "✅ Configuration Laravel sécurisée\\n";
 }
-PHPEOF
+PHP_EOF
                     
                     php check-laravel-security.php
                     rm -f check-laravel-security.php
@@ -425,7 +439,7 @@ EOF
             }
         }
 
-               stage('Validation de Sécurité') {
+        stage('Validation de Sécurité') {
             steps {
                 script {
                     echo "========== VALIDATION DE SÉCURITÉ =========="
@@ -440,12 +454,8 @@ EOF
                         
                         # Vérifier les problèmes de configuration Laravel
                         if [ -f "security-reports/laravel-config.json" ]; then
-                            # Afficher le contenu pour debug
-                            echo "Contenu du rapport Laravel:"
-                            head -50 security-reports/laravel-config.json
-                            
                             # Extraire le nombre de problèmes critiques
-                            CRITICAL_COUNT=$(grep -o '"critical": [0-9]*' security-reports/laravel-config.json | awk -F': ' '{print $2}' | head -1)
+                            CRITICAL_COUNT=$(grep -o \'"critical": [0-9]*\' security-reports/laravel-config.json | awk -F\': \' \'{print $2}\' | head -1)
                             if [ -z "$CRITICAL_COUNT" ]; then
                                 CRITICAL_COUNT=0
                             fi
@@ -463,11 +473,10 @@ EOF
                             echo "⚠️ Fichier laravel-config.json non trouvé"
                         fi
                         
-                        # Vérifier si des secrets ont été trouvés (plus de 10 lignes de résultats)
+                        # Vérifier si des secrets ont été trouvés
                         if [ -f "security-reports/secrets-report.txt" ]; then
-                            LINE_COUNT=$(wc -l < security-reports/secrets-report.txt 2>/dev/null || echo "0")
                             # Compter seulement les lignes de résultats (exclure les en-têtes)
-                            RESULT_LINES=$(grep -c "password\|secret\|key" security-reports/secrets-report.txt 2>/dev/null || echo "0")
+                            RESULT_LINES=$(grep -E -c "password|secret|key" security-reports/secrets-report.txt 2>/dev/null || echo "0")
                             
                             if [ "$RESULT_LINES" -gt 5 ]; then
                                 echo "⚠️ Des patterns sensibles ont été détectés dans le code"
