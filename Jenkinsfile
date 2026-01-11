@@ -96,25 +96,32 @@ pipeline {
             }
         }
 
-        stage('Installer/Rafraîchir les Dépendances') {
-            steps {
-                sh '''
-                    echo "========== INSTALLATION DES DÉPENDANCES =========="
-                    # Si vendor existe déjà, on met à jour, sinon on installe
-                    if [ -d "vendor" ]; then
-                        echo "Mise à jour des dépendances existantes..."
-                        ./composer update --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
-                    else
-                        echo "Installation complète des dépendances..."
-                        ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
-                    fi
-                    
-                    # Régénération FORCÉE de l'autoloader (critique !)
-                    ./composer dump-autoload --optimize
-                    echo "✅ Dépendances installées et autoloader régénéré"
-                '''
-            }
-        }
+       stage('Installer/Rafraîchir les Dépendances') {
+    steps {
+        sh '''
+            echo "========== INSTALLATION DES DÉPENDANCES =========="
+            
+            # Nettoyage complet pour éviter les conflits
+            echo "Nettoyage préalable..."
+            rm -rf vendor composer.lock 2>/dev/null || true
+            
+            # Installation fraîche systématiquement (plus fiable)
+            echo "Installation fraîche des dépendances..."
+            ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+            
+            # Vérification et correction des permissions
+            echo "Vérification des permissions..."
+            if [ -d "vendor" ]; then
+                chmod -R u+rwX vendor
+                find vendor -type f -name "*.php" -exec chmod 644 {} \\;
+            fi
+            
+            # Régénération de l'autoloader
+            ./composer dump-autoload --optimize
+            echo "✅ Dépendances installées et autoloader régénéré"
+        '''
+    }
+}
 
         stage('Configurer Laravel') {
             steps {
