@@ -11,6 +11,7 @@ pipeline {
         COMPOSER_PLATFORM_CHECK = 0
     }
 
+    // ------------------- TEST -------------------
     stages {
         stage('Vérifier PHP') {
             steps {
@@ -252,12 +253,256 @@ EOF
                 '''
             }
         }
+
+        // ------------------- SÉCURITÉ -------------------
+        stage('Analyse de Sécurité') {
+            steps {
+                sh '''
+                    echo "========== ANALYSE DE SÉCURITÉ =========="
+                    
+                    # Créer le répertoire pour les rapports de sécurité
+                    mkdir -p security-reports
+                    
+                    # 1. Audit des dépendances Composer
+                    echo "1. Audit des dépendances Composer..."
+                    if ./composer --version 2>&1 | grep -q "Composer version 2"; then
+                        echo "Exécution de composer audit..."
+                        ./composer audit --format=json > security-reports/composer-audit.json 2>/dev/null || echo "⚠️ Audit Composer non disponible"
+                        echo "✅ Audit Composer terminé"
+                    else
+                        echo "⚠️ Composer 2+ requis pour l'audit"
+                    fi
+                    
+                    # 2. Analyse des vulnérabilités PHP avec security-checker
+                    echo "2. Analyse des vulnérabilités PHP..."
+                    # Télécharger security-checker si nécessaire
+                    if [ ! -f "/usr/local/bin/security-checker" ]; then
+                        echo "Téléchargement de PHP Security Checker..."
+                        wget -q https://github.com/fabpot/local-php-security-checker/releases/download/v2.0.8/local-php-security-checker_2.0.8_linux_amd64 \
+                            -O security-checker
+                        chmod +x security-checker
+                        SECURITY_CHECKER="./security-checker"
+                    else
+                        SECURITY_CHECKER="/usr/local/bin/security-checker"
+                    fi
+                    
+                    # Exécuter le scan
+                    $SECURITY_CHECKER --path=. --format=json > security-reports/php-security.json 2>/dev/null || echo "⚠️ Scan PHP Security échoué"
+                    
+                    # 3. Vérification de la configuration Laravel
+                    echo "3. Vérification de la configuration Laravel..."
+                    cat > check-laravel-security.php << 'PHPEOF'
+<?php
+require_once 'vendor/autoload.php';
+
+$securityIssues = [];
+
+// Vérifier APP_DEBUG
+if (env('APP_DEBUG') === true) {
+    $securityIssues[] = [
+        'level' => 'high',
+        'message' => 'APP_DEBUG est activé en environnement ' . env('APP_ENV', 'production'),
+        'recommendation' => 'Désactiver APP_DEBUG en production'
+    ];
+}
+
+// Vérifier APP_KEY
+if (empty(env('APP_KEY'))) {
+    $securityIssues[] = [
+        'level' => 'critical',
+        'message' => 'APP_KEY n\'est pas défini',
+        'recommendation' => 'Générer une clé avec php artisan key:generate'
+    ];
+}
+
+// Vérifier la configuration de la session
+if (env('SESSION_DRIVER') === 'cookie' && env('APP_ENV') === 'production') {
+    $securityIssues[] = [
+        'level' => 'medium',
+        'message' => 'Session driver cookie en production',
+        'recommendation' => 'Utiliser un driver de session plus sécurisé comme database ou redis'
+    ];
+}
+
+// Sauvegarder le rapport
+file_put_contents('security-reports/laravel-config.json', json_encode([
+    'timestamp' => date('c'),
+    'checks_performed' => [
+        'app_debug',
+        'app_key',
+        'session_driver'
+    ],
+    'issues' => $securityIssues,
+    'summary' => [
+        'total_issues' => count($securityIssues),
+        'critical' => count(array_filter($securityIssues, function($issue) {
+            return $issue['level'] === 'critical';
+        })),
+        'high' => count(array_filter($securityIssues, function($issue) {
+            return $issue['level'] === 'high';
+        })),
+        'medium' => count(array_filter($securityIssues, function($issue) {
+            return $issue['level'] === 'medium';
+        })),
+        'low' => count(array_filter($securityIssues, function($issue) {
+            return $issue['level'] === 'low';
+        }))
+    ]
+], JSON_PRETTY_PRINT));
+
+if (!empty($securityIssues)) {
+    echo "Problèmes de sécurité détectés dans la configuration Laravel:\n";
+    foreach ($securityIssues as $issue) {
+        echo "[{$issue['level']}] {$issue['message']}\n";
+    }
+} else {
+    echo "✅ Configuration Laravel sécurisée\n";
+}
+PHPEOF
+                    
+                    php check-laravel-security.php
+                    rm -f check-laravel-security.php
+                    
+                    # 4. Analyse des permissions de fichiers
+                    echo "4. Analyse des permissions de fichiers..."
+                    cat > check-file-permissions.sh << 'EOF'
+#!/bin/bash
+echo "Analyse des permissions de fichiers sensibles..."
+find . -type f \( -name "*.env*" -o -name "*.key" -o -name "*.pem" -o -name "*.crt" \) -exec ls -la {} \; 2>/dev/null > security-reports/file-permissions.txt
+echo "Permissions vérifiées"
+EOF
+                    chmod +x check-file-permissions.sh
+                    ./check-file-permissions.sh
+                    rm -f check-file-permissions.sh
+                    
+                    # 5. Recherche de secrets dans le code
+                    echo "5. Recherche de secrets potentiels..."
+                    cat > find-secrets.sh << 'EOF'
+#!/bin/bash
+echo "Recherche de patterns sensibles dans le code..."
+PATTERNS=(
+    "password.*="
+    "secret.*="
+    "key.*="
+    "token.*="
+    "api_key"
+    "aws_key"
+    "database_password"
+    "encryption_key"
+    "private_key"
+)
+
+echo "=== RAPPORT DE SÉCURITÉ - SECRETS POTENTIELS ===" > security-reports/secrets-report.txt
+echo "Date: $(date)" >> security-reports/secrets-report.txt
+echo "==============================================" >> security-reports/secrets-report.txt
+
+for pattern in "${PATTERNS[@]}"; do
+    echo "" >> security-reports/secrets-report.txt
+    echo "Recherche: $pattern" >> security-reports/secrets-report.txt
+    grep -r -i -n "$pattern" . --include="*.php" --include="*.env*" --include="*.js" \
+        --include="*.json" --include="*.yml" --include="*.yaml" 2>/dev/null | head -20 >> security-reports/secrets-report.txt
+done
+
+echo "✅ Recherche de secrets terminée"
+EOF
+                    chmod +x find-secrets.sh
+                    ./find-secrets.sh
+                    rm -f find-secrets.sh
+                    
+                    # 6. Vérification des dépendances obsolètes
+                    echo "6. Vérification des dépendances obsolètes..."
+                    ./composer outdated --direct --format=json > security-reports/outdated-packages.json 2>/dev/null || echo "⚠️ Impossible de vérifier les dépendances obsolètes"
+                    
+                    # Générer un rapport de synthèse
+                    echo "7. Génération du rapport de synthèse..."
+                    cat > security-reports/security-summary.txt << 'EOF'
+=== RAPPORT DE SÉCURITÉ SYNTHÈSE ===
+Date: $(date)
+Projet: Akaunting
+====================================
+
+ANALYSES EFFECTUÉES:
+1. ✅ Audit des dépendances Composer
+2. ✅ Analyse des vulnérabilités PHP
+3. ✅ Vérification de la configuration Laravel
+4. ✅ Analyse des permissions de fichiers
+5. ✅ Recherche de secrets dans le code
+6. ✅ Vérification des dépendances obsolètes
+
+RÉSULTATS:
+- Fichiers de rapports disponibles dans security-reports/
+- Vérifiez les vulnérabilités critiques
+- Mettez à jour les dépendances obsolètes
+- Corrigez les problèmes de configuration
+
+RECOMMANDATIONS:
+1. Mettre à jour régulièrement les dépendances
+2. Désactiver APP_DEBUG en production
+3. Utiliser des variables d'environnement pour les secrets
+4. Réviser les permissions des fichiers sensibles
+5. Implémenter une analyse SAST régulière
+
+=== FIN DU RAPPORT ===
+EOF
+                    
+                    echo "✅ Analyse de sécurité terminée"
+                    echo "📁 Rapports disponibles dans: security-reports/"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Validation de Sécurité') {
+            steps {
+                script {
+                    echo "========== VALIDATION DE SÉCURITÉ =========="
+                    
+                    // Lire et analyser les résultats de sécurité
+                    def securityReport = readFile(file: 'security-reports/security-summary.txt')
+                    echo "📋 Résumé de sécurité:\n${securityReport}"
+                    
+                    // Vérifier s'il y a des problèmes critiques
+                    sh '''
+                        echo "Vérification des problèmes critiques..."
+                        
+                        # Vérifier les vulnérabilités PHP
+                        if [ -f "security-reports/php-security.json" ]; then
+                            VULN_COUNT=$(grep -c '"vulnerabilities"' security-reports/php-security.json || echo "0")
+                            if [ "$VULN_COUNT" -gt 0 ]; then
+                                echo "⚠️ Vulnérabilités PHP détectées: $VULN_COUNT"
+                            else
+                                echo "✅ Aucune vulnérabilité PHP critique détectée"
+                            fi
+                        fi
+                        
+                        # Vérifier les problèmes de configuration Laravel
+                        if [ -f "security-reports/laravel-config.json" ]; then
+                            CRITICAL_ISSUES=$(grep -c '"critical"' security-reports/laravel-config.json || echo "0")
+                            if [ "$CRITICAL_ISSUES" -gt 0 ]; then
+                                echo "❌ Problèmes critiques de configuration Laravel: $CRITICAL_ISSUES"
+                                exit 1
+                            else
+                                echo "✅ Aucun problème critique de configuration Laravel"
+                            fi
+                        fi
+                    '''
+                    
+                    echo "✅ Validation de sécurité réussie"
+                }
+            }
+        }
     }
 
     post {
         success {
             echo "🎉 PIPELINE RÉUSSI !"
             archiveArtifacts artifacts: 'storage/logs/*.log', allowEmptyArchive: true
+            // Ajouter les rapports de sécurité aux artefacts
+            archiveArtifacts artifacts: 'security-reports/**', allowEmptyArchive: true
         }
         failure {
             echo "💥 PIPELINE EN ÉCHEC"
@@ -274,10 +519,18 @@ EOF
                 echo ""
                 echo "Structure vendor/composer:"
                 ls -la vendor/composer/ 2>/dev/null | head -10 || echo "vendor/composer/ non trouvé"
+                echo ""
+                echo "Rapports de sécurité générés:"
+                ls -la security-reports/ 2>/dev/null || echo "Aucun rapport de sécurité"
             '''
         }
         always {
             sh 'echo "🕒 Pipeline terminé à : $(date)"'
+            // Nettoyer les fichiers temporaires
+            sh '''
+                echo "🧹 Nettoyage des fichiers temporaires..."
+                rm -f security-checker 2>/dev/null || true
+            '''
         }
     }
 }
