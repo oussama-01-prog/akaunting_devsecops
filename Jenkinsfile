@@ -17,7 +17,6 @@ pipeline {
                     php --version
                     echo ""
                     echo "========== VÉRIFICATION DES EXTENSIONS =========="
-                    # Vérification simplifiée sans tableaux associatifs (compatible avec dash)
                     EXTENSIONS="mbstring curl openssl pdo_sqlite json bcmath tokenizer ctype xml"
                     for EXT in $EXTENSIONS; do
                         if php -m | grep -q "^$EXT\$"; then
@@ -60,10 +59,6 @@ pipeline {
                         noTags: true
                     ]]
                 ])
-                sh '''
-                    echo "Dépôt cloné avec succès"
-                    ls -la
-                '''
             }
         }
 
@@ -71,28 +66,52 @@ pipeline {
             steps {
                 sh '''
                     echo "========== INSTALLATION DE COMPOSER =========="
-                    EXPECTED_CHECKSUM="$(curl -s https://composer.github.io/installer.sig)"
-                    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-                    ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', 'composer-setup.php');")"
-                    
-                    if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
-                        echo "❌ ERREUR : Checksum de Composer invalide !"
+                    if [ ! -f composer ]; then
+                        EXPECTED_CHECKSUM="$(curl -s https://composer.github.io/installer.sig)"
+                        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+                        ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', 'composer-setup.php');")"
+                        
+                        if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
+                            echo "❌ ERREUR : Checksum de Composer invalide !"
+                            rm composer-setup.php
+                            exit 1
+                        fi
+                        
+                        php composer-setup.php --install-dir=. --filename=composer
+                        RESULT=$?
                         rm composer-setup.php
-                        exit 1
-                    fi
-                    
-                    php composer-setup.php --install-dir=. --filename=composer
-                    RESULT=$?
-                    rm composer-setup.php
-                    
-                    if [ $RESULT -eq 0 ]; then
-                        chmod +x composer
-                        ./composer --version
-                        echo "✅ Composer installé avec succès"
+                        
+                        if [ $RESULT -eq 0 ]; then
+                            chmod +x composer
+                            echo "✅ Composer installé avec succès"
+                        else
+                            echo "❌ Échec de l'installation de Composer"
+                            exit 1
+                        fi
                     else
-                        echo "❌ Échec de l'installation de Composer"
-                        exit 1
+                        echo "✅ Composer déjà présent"
                     fi
+                    ./composer --version
+                '''
+            }
+        }
+
+        stage('Installer/Rafraîchir les Dépendances') {
+            steps {
+                sh '''
+                    echo "========== INSTALLATION DES DÉPENDANCES =========="
+                    # Si vendor existe déjà, on met à jour, sinon on installe
+                    if [ -d "vendor" ]; then
+                        echo "Mise à jour des dépendances existantes..."
+                        ./composer update --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+                    else
+                        echo "Installation complète des dépendances..."
+                        ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+                    fi
+                    
+                    # Régénération FORCÉE de l'autoloader (critique !)
+                    ./composer dump-autoload --optimize
+                    echo "✅ Dépendances installées et autoloader régénéré"
                 '''
             }
         }
@@ -101,52 +120,54 @@ pipeline {
             steps {
                 sh '''
                     echo "========== CONFIGURATION LARAVEL =========="
+                    # Préparation des dossiers
+                    mkdir -p storage/framework/{cache,sessions,views}
+                    mkdir -p database
+                    
+                    # Permissions
+                    chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+                    
+                    # Configuration .env
                     if [ ! -f .env ]; then
                         if [ -f .env.example ]; then
                             cp .env.example .env
                             echo ".env créé à partir de .env.example"
                         else
-                            echo "⚠️  .env.example non trouvé, création d'un .env vide"
                             echo "# Configuration Laravel" > .env
                         fi
                     fi
                     
-                    mkdir -p database
-                    touch database/database.sqlite
-                    echo "Base de données SQLite créée : database/database.sqlite"
-                    
+                    # Forcer SQLite
                     sed -i.bak '/^DB_CONNECTION=/d' .env
                     sed -i.bak '/^DB_DATABASE=/d' .env
-                    echo "DB_CONNECTION=sqlite" >> .env
+                    echo "DB_CONNECTION=mysql" >> .env
                     echo "DB_DATABASE=database/database.sqlite" >> .env
                     
-                    mkdir -p storage/framework/{cache,sessions,views}
-                    chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+                    # Créer la base de données
+                    touch database/database.sqlite
+                    echo "Base de données SQLite créée"
                     
+                    # Nettoyer les caches avant de générer la clé
+                    php artisan config:clear 2>/dev/null || echo "Cache config déjà vide"
+                    php artisan cache:clear 2>/dev/null || echo "Cache déjà vide"
+                    
+                    # Générer la clé d'application
                     php artisan key:generate --force
                     echo "✅ Configuration Laravel terminée"
                 '''
             }
         }
 
-        stage('Installer les Dépendances') {
+        stage('Préparer l\'Application') {
             steps {
                 sh '''
-                    echo "========== INSTALLATION DES DÉPENDANCES =========="
-                    ./composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
-                    ./composer dump-autoload --optimize
-                    echo "✅ Dépendances installées avec succès"
-                '''
-            }
-        }
-
-        stage('Pré-cache Laravel') {
-            steps {
-                sh '''
-                    echo "========== PRÉ-CACHE DE L'APPLICATION =========="
-                    php artisan config:clear
+                    echo "========== PRÉPARATION FINALE =========="
+                    # Migration de la base de données (si nécessaire)
+                    php artisan migrate --force 2>/dev/null || echo "Aucune migration nécessaire ou erreur ignorée"
+                    
+                    # Générer le cache de configuration
                     php artisan config:cache
-                    echo "✅ Cache de configuration généré"
+                    echo "✅ Application prête pour les tests"
                 '''
             }
         }
@@ -178,13 +199,13 @@ pipeline {
             sh '''
                 echo "========== DIAGNOSTIC FINAL =========="
                 echo "Version PHP :"
-                php --version 2>/dev/null || echo "PHP non disponible"
+                php --version
                 echo ""
                 echo "Composer :"
-                ./composer --version 2>/dev/null || composer --version 2>/dev/null || echo "Composer non disponible"
+                ./composer --version 2>/dev/null || echo "Composer non disponible"
                 echo ""
-                echo "Fichiers présents :"
-                ls -la
+                echo "Structure Laravel :"
+                ls -la vendor/laravel/framework 2>/dev/null || echo "Laravel non installé"
             '''
         }
         always {
