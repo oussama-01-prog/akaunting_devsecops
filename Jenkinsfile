@@ -144,7 +144,7 @@ pipeline {
     }
 }
 
-        stage('Configurer Laravel') {
+       stage('Configurer Laravel') {
     steps {
         sh '''
             echo "========== CONFIGURATION LARAVEL =========="
@@ -156,27 +156,19 @@ pipeline {
             # Permissions
             chmod -R 775 storage bootstrap/cache 2>/dev/null || true
             
-            # Configuration .env pour MySQL (comme dans votre projet)
+            # Configuration .env minimal pour tests
             cat > .env << 'EOF'
-APP_NAME=Akaunting
+APP_NAME="Akaunting"
 APP_ENV=testing
-APP_LOCALE=en-GB
-APP_INSTALLED=false
 APP_KEY=
 APP_DEBUG=true
-APP_SCHEDULE_TIME="09:00"
 APP_URL=http://localhost
 
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=akaunting_test
-DB_USERNAME=root
-DB_PASSWORD=""
+DB_CONNECTION=sqlite
+DB_DATABASE=database/database.sqlite
 
-BROADCAST_DRIVER=log
-CACHE_DRIVER=file
-SESSION_DRIVER=file
+CACHE_DRIVER=array
+SESSION_DRIVER=array
 QUEUE_CONNECTION=sync
 
 LOG_CHANNEL=stack
@@ -184,29 +176,29 @@ LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
 MAIL_MAILER=log
-MAIL_HOST=localhost
-MAIL_PORT=2525
-MAIL_USERNAME=null
-MAIL_PASSWORD=null
-MAIL_ENCRYPTION=null
-MAIL_FROM_NAME=null
-MAIL_FROM_ADDRESS=null
 
+# Désactiver les fonctionnalités non nécessaires pour les tests
 FIREWALL_ENABLED=false
 MODEL_CACHE_ENABLED=false
-DEBUGBAR_EDITOR=vscode
-IGNITION_EDITOR=vscode
-PWA_ENABLED=false
+DEBUGBAR_ENABLED=false
 EOF
             
-            # Nettoyer les caches
+            # Créer base SQLite
+            touch database/database.sqlite
+            
+            # Régénérer l'autoloader
             ./composer dump-autoload
             
-            # Générer la clé d'application
+            # Générer la clé d'application - CORRECTION DE LA SYNTAXE
+            echo "Génération de la clé d'application..."
             php -r "
                 require_once 'vendor/autoload.php';
+                
+                // Créer l'application
                 \$app = require_once 'bootstrap/app.php';
                 \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+                
+                // Générer la clé
                 \$status = \$kernel->call('key:generate', ['--force' => true]);
                 exit(\$status);
             "
