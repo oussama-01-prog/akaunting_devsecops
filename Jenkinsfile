@@ -6,12 +6,9 @@ pipeline {
     }
 
     environment {
-        PATH = "/usr/local/php8.1/bin:${env.PATH}"
+        PATH = "/usr/local/php8.1/bin:\${env.PATH}"
         COMPOSER_ALLOW_SUPERUSER = 1
         COMPOSER_PLATFORM_CHECK = 0
-        // Variables de build
-        BUILD_VERSION = "${BUILD_NUMBER}-$(date +%Y%m%d%H%M%S)"
-        BUILD_ARTIFACT = "akaunting-build-${BUILD_VERSION}"
     }
 
     // ------------------- TEST -------------------
@@ -20,8 +17,8 @@ pipeline {
             steps {
                 sh '''
                     echo "========== ENVIRONNEMENT PHP =========="
-                    echo "Version PHP : $(php --version | head -1)"
-                    echo "PHP_VERSION_ID : $(php -r 'echo PHP_VERSION_ID;')"
+                    echo "Version PHP : \$(php --version | head -1)"
+                    echo "PHP_VERSION_ID : \$(php -r 'echo PHP_VERSION_ID;')"
                 '''
             }
         }
@@ -29,13 +26,13 @@ pipeline {
         stage('Checkout du Code') {
             steps {
                 checkout([
-                    $class: 'GitSCM',
+                    \$class: 'GitSCM',
                     branches: [[name: '*/master']],
                     userRemoteConfigs: [[
                         url: 'https://github.com/oussama-01-prog/akaunting_devsecops.git'
                     ]],
                     extensions: [[
-                        $class: 'CloneOption',
+                        \$class: 'CloneOption',
                         shallow: true,
                         depth: 1,
                         noTags: true
@@ -81,11 +78,11 @@ pipeline {
                     echo "========== INSTALLATION DES DÉPENDANCES =========="
                     
                     # Installer les dépendances avec désactivation complète du platform check
-                    COMPOSER_PLATFORM_CHECK=0 ./composer install \
-                        --no-interaction \
-                        --prefer-dist \
-                        --optimize-autoloader \
-                        --ignore-platform-reqs \
+                    COMPOSER_PLATFORM_CHECK=0 ./composer install \\
+                        --no-interaction \\
+                        --prefer-dist \\
+                        --optimize-autoloader \\
+                        --ignore-platform-reqs \\
                         --no-scripts
                     
                     # SUPPRIMER le fichier platform_check.php (solution définitive)
@@ -124,10 +121,10 @@ EOF
                     if [ -f "composer.json" ]; then
                         echo "Désactivation du platform check dans composer.json..."
                         php -r '
-                            $json = json_decode(file_get_contents("composer.json"), true);
-                            if (!isset($json["config"])) $json["config"] = [];
-                            $json["config"]["platform-check"] = false;
-                            file_put_contents("composer.json", json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                            \$json = json_decode(file_get_contents("composer.json"), true);
+                            if (!isset(\$json["config"])) \$json["config"] = [];
+                            \$json["config"]["platform-check"] = false;
+                            file_put_contents("composer.json", json_encode(\$json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
                         '
                     fi
                     
@@ -148,7 +145,7 @@ EOF
                     cat > .env << 'EOF'
 APP_NAME="Akaunting Test"
 APP_ENV=testing
-APP_KEY=base64:$(openssl rand -base64 32)
+APP_KEY=base64:\$(openssl rand -base64 32)
 APP_DEBUG=true
 APP_URL=http://localhost
 
@@ -229,14 +226,14 @@ EOF
                             require_once 'vendor/autoload.php';
                             
                             // Exécuter PHPUnit
-                            \$argv = ['phpunit', '--stop-on-failure', '--testdox', '--colors=never'];
-                            \$_SERVER['argv'] = \$argv;
+                            \\\$argv = ['phpunit', '--stop-on-failure', '--testdox', '--colors=never'];
+                            \\\$_SERVER['argv'] = \\\$argv;
                             
                             require 'vendor/phpunit/phpunit/phpunit';
                         " 2>/dev/null || echo "⚠️ Tests non exécutés avec wrapper"
                         
                         # Si le wrapper échoue, essayer directement
-                        if [ $? -ne 0 ]; then
+                        if [ \$? -ne 0 ]; then
                             echo "Essai avec PHPUnit direct..."
                             php -d disable_functions= -d error_reporting=0 vendor/bin/phpunit --stop-on-failure --testdox --colors=never
                         fi
@@ -245,9 +242,9 @@ EOF
                         php artisan test --stop-on-failure 2>/dev/null || echo "⚠️ Tests non exécutés"
                     fi
                     
-                    TEST_RESULT=$?
+                    TEST_RESULT=\$?
                     
-                    if [ $TEST_RESULT -eq 0 ]; then
+                    if [ \$TEST_RESULT -eq 0 ]; then
                         echo "✅ Tests réussis"
                     else
                         echo "❌ Tests échoués"
@@ -284,48 +281,48 @@ EOF
 require_once "vendor/autoload.php";
 
 // Lire directement le fichier .env
-$envFile = '.env';
-$securityIssues = [];
+\$envFile = '.env';
+\$securityIssues = [];
 
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+if (file_exists(\$envFile)) {
+    \$lines = file(\$envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     
-    $appKeySet = false;
-    $appDebug = false;
+    \$appKeySet = false;
+    \$appDebug = false;
     
-    foreach ($lines as $line) {
-        if (strpos($line, 'APP_KEY=') === 0) {
-            $value = substr($line, 8);
-            if (!empty($value) && $value !== 'base64:' && strlen($value) > 20) {
-                $appKeySet = true;
+    foreach (\$lines as \$line) {
+        if (strpos(\$line, 'APP_KEY=') === 0) {
+            \$value = substr(\$line, 8);
+            if (!empty(\$value) && \$value !== 'base64:' && strlen(\$value) > 20) {
+                \$appKeySet = true;
             }
         }
         
-        if (strpos($line, 'APP_DEBUG=') === 0) {
-            $value = substr($line, 10);
-            if ($value === 'true') {
-                $appDebug = true;
+        if (strpos(\$line, 'APP_DEBUG=') === 0) {
+            \$value = substr(\$line, 10);
+            if (\$value === 'true') {
+                \$appDebug = true;
             }
         }
     }
     
-    if (!$appKeySet) {
-        $securityIssues[] = [
+    if (!\$appKeySet) {
+        \$securityIssues[] = [
             "level" => "critical",
-            "message" => "APP_KEY n\'est pas défini ou est invalide",
+            "message" => "APP_KEY n\\'est pas défini ou est invalide",
             "recommendation" => "Générer une clé avec php artisan key:generate"
         ];
     }
     
-    if ($appDebug) {
-        $securityIssues[] = [
+    if (\$appDebug) {
+        \$securityIssues[] = [
             "level" => "warning",
             "message" => "APP_DEBUG est activé",
             "recommendation" => "Désactiver APP_DEBUG en production"
         ];
     }
 } else {
-    $securityIssues[] = [
+    \$securityIssues[] = [
         "level" => "critical",
         "message" => "Fichier .env non trouvé",
         "recommendation" => "Créer un fichier .env à partir de .env.example"
@@ -333,30 +330,30 @@ if (file_exists($envFile)) {
 }
 
 // Sauvegarder le rapport
-$result = [
+\$result = [
     "timestamp" => date("c"),
     "checks_performed" => [
         "app_key",
         "app_debug"
     ],
-    "issues" => $securityIssues,
+    "issues" => \$securityIssues,
     "summary" => [
-        "total_issues" => count($securityIssues),
-        "critical" => count(array_filter($securityIssues, function($issue) {
-            return $issue["level"] === "critical";
+        "total_issues" => count(\$securityIssues),
+        "critical" => count(array_filter(\$securityIssues, function(\$issue) {
+            return \$issue["level"] === "critical";
         })),
-        "warning" => count(array_filter($securityIssues, function($issue) {
-            return $issue["level"] === "warning";
+        "warning" => count(array_filter(\$securityIssues, function(\$issue) {
+            return \$issue["level"] === "warning";
         }))
     ]
 ];
 
-file_put_contents("security-reports/laravel-config.json", json_encode($result, JSON_PRETTY_PRINT));
+file_put_contents("security-reports/laravel-config.json", json_encode(\$result, JSON_PRETTY_PRINT));
 
-echo "Vérification Laravel terminée. Problèmes trouvés: " . count($securityIssues) . "\\n";
-if (!empty($securityIssues)) {
-    foreach ($securityIssues as $issue) {
-        echo "[{$issue["level"]}] {$issue["message"]}\\n";
+echo "Vérification Laravel terminée. Problèmes trouvés: " . count(\$securityIssues) . "\\n";
+if (!empty(\$securityIssues)) {
+    foreach (\$securityIssues as \$issue) {
+        echo "[{\$issue["level"]}] {\$issue["message"]}\\n";
     }
 }
 PHP_EOF
@@ -367,7 +364,7 @@ PHP_EOF
                     # 3. Recherche de secrets dans le code
                     echo "3. Recherche de secrets potentiels..."
                     echo "Recherche de patterns sensibles dans le code..." > security-reports/secrets-report.txt
-                    echo "Date: $(date)" >> security-reports/secrets-report.txt
+                    echo "Date: \$(date)" >> security-reports/secrets-report.txt
                     echo "==============================================" >> security-reports/secrets-report.txt
                     
                     # Recherche simplifiée
@@ -391,7 +388,7 @@ PHP_EOF
                     # 5. Vérification des permissions
                     echo "5. Vérification des permissions..."
                     echo "Permissions des fichiers sensibles:" > security-reports/permissions.txt
-                    echo "Date: $(date)" >> security-reports/permissions.txt
+                    echo "Date: \$(date)" >> security-reports/permissions.txt
                     echo "=====================================" >> security-reports/permissions.txt
                     
                     # Vérification simplifiée
@@ -404,7 +401,7 @@ PHP_EOF
                     echo "6. Génération du rapport de synthèse..."
                     cat > security-reports/security-summary.txt << 'EOF'
 === RAPPORT DE SÉCURITÉ SYNTHÈSE ===
-Date: $(date)
+Date: \$(date)
 Projet: Akaunting
 ====================================
 
@@ -449,7 +446,7 @@ EOF
                     
                     // Lire et analyser les résultats de sécurité
                     def securityReport = readFile(file: 'security-reports/security-summary.txt')
-                    echo "📋 Résumé de sécurité:\n${securityReport}"
+                    echo "📋 Résumé de sécurité:\n\${securityReport}"
                     
                     // Vérifier s'il y a des problèmes critiques
                     sh '''
@@ -458,14 +455,14 @@ EOF
                         # Vérifier les problèmes de configuration Laravel
                         if [ -f "security-reports/laravel-config.json" ]; then
                             # Extraire le nombre de problèmes critiques
-                            CRITICAL_COUNT=$(grep -o \'"critical": [0-9]*\' security-reports/laravel-config.json | awk -F\': \' \'{print $2}\' | head -1)
-                            if [ -z "$CRITICAL_COUNT" ]; then
+                            CRITICAL_COUNT=\$(grep -o \\'"critical": [0-9]*\\' security-reports/laravel-config.json | awk -F\\': \\' \\'{print \$2}\\' | head -1)
+                            if [ -z "\$CRITICAL_COUNT" ]; then
                                 CRITICAL_COUNT=0
                             fi
                             
-                            echo "Nombre de problèmes critiques détectés: $CRITICAL_COUNT"
+                            echo "Nombre de problèmes critiques détectés: \$CRITICAL_COUNT"
                             
-                            if [ "$CRITICAL_COUNT" -gt 0 ]; then
+                            if [ "\$CRITICAL_COUNT" -gt 0 ]; then
                                 echo "❌ Problèmes critiques de configuration Laravel détectés"
                                 echo "Consultez le rapport: security-reports/laravel-config.json"
                                 exit 1
@@ -479,9 +476,9 @@ EOF
                         # Vérifier si des secrets ont été trouvés
                         if [ -f "security-reports/secrets-report.txt" ]; then
                             # Compter seulement les lignes de résultats (exclure les en-têtes)
-                            RESULT_LINES=$(grep -E -c "password|secret|key" security-reports/secrets-report.txt 2>/dev/null || echo "0")
+                            RESULT_LINES=\$(grep -E -c "password|secret|key" security-reports/secrets-report.txt 2>/dev/null || echo "0")
                             
-                            if [ "$RESULT_LINES" -gt 5 ]; then
+                            if [ "\$RESULT_LINES" -gt 5 ]; then
                                 echo "⚠️ Des patterns sensibles ont été détectés dans le code"
                                 echo "Consultez le rapport: security-reports/secrets-report.txt"
                             else
@@ -498,62 +495,67 @@ EOF
         // ------------------- BUILD -------------------
         stage('Build de l\'Application') {
             steps {
-                sh '''
-                    echo "========== BUILD DE L\'APPLICATION =========="
-                    echo "Version du build: ${BUILD_VERSION}"
+                script {
+                    // Générer la version du build
+                    def buildVersion = "\${BUILD_NUMBER}-\${new Date().format('yyyyMMddHHmmss')}"
+                    def buildArtifact = "akaunting-build-\${buildVersion}"
                     
-                    # 1. Nettoyage pour la production
-                    echo "1. Nettoyage pour la production..."
-                    rm -rf node_modules/ .git/ .github/ tests/ phpunit.xml.dist composer.phar composer-setup.php
+                    echo "========== BUILD DE L'APPLICATION =========="
+                    echo "Version du build: \${buildVersion}"
                     
-                    # Supprimer les fichiers de développement uniquement
-                    find . -name "*.log" -type f -delete 2>/dev/null || true
-                    find . -name "*.backup" -type f -delete 2>/dev/null || true
-                    
-                    # 2. Réinstallation des dépendances pour production
-                    echo "2. Installation des dépendances production..."
-                    COMPOSER_PLATFORM_CHECK=0 ./composer install \
-                        --no-dev \
-                        --no-interaction \
-                        --prefer-dist \
-                        --optimize-autoloader \
-                        --classmap-authoritative \
-                        --ignore-platform-reqs
-                    
-                    # 3. Optimisation Laravel pour la production
-                    echo "3. Optimisation Laravel..."
-                    export COMPOSER_PLATFORM_CHECK=0
-                    
-                    # Vider les caches de développement
-                    php artisan cache:clear 2>/dev/null || true
-                    php artisan config:clear 2>/dev/null || true
-                    php artisan route:clear 2>/dev/null || true
-                    php artisan view:clear 2>/dev/null || true
-                    
-                    # Générer les caches de production
-                    php artisan config:cache 2>/dev/null || echo "⚠️ Cache config non généré"
-                    php artisan route:cache 2>/dev/null || echo "⚠️ Cache route non généré"
-                    php artisan view:cache 2>/dev/null || echo "⚠️ Cache view non généré"
-                    
-                    # 4. Créer le fichier de version
-                    echo "4. Création du fichier de version..."
-                    cat > version.txt << EOF
+                    sh """
+                        # 1. Nettoyage pour la production
+                        echo "1. Nettoyage pour la production..."
+                        rm -rf node_modules/ .git/ .github/ tests/ phpunit.xml.dist composer.phar composer-setup.php
+                        
+                        # Supprimer les fichiers de développement uniquement
+                        find . -name "*.log" -type f -delete 2>/dev/null || true
+                        find . -name "*.backup" -type f -delete 2>/dev/null || true
+                        
+                        # 2. Réinstallation des dépendances pour production
+                        echo "2. Installation des dépendances production..."
+                        COMPOSER_PLATFORM_CHECK=0 ./composer install \\
+                            --no-dev \\
+                            --no-interaction \\
+                            --prefer-dist \\
+                            --optimize-autoloader \\
+                            --classmap-authoritative \\
+                            --ignore-platform-reqs
+                        
+                        # 3. Optimisation Laravel pour la production
+                        echo "3. Optimisation Laravel..."
+                        export COMPOSER_PLATFORM_CHECK=0
+                        
+                        # Vider les caches de développement
+                        php artisan cache:clear 2>/dev/null || true
+                        php artisan config:clear 2>/dev/null || true
+                        php artisan route:clear 2>/dev/null || true
+                        php artisan view:clear 2>/dev/null || true
+                        
+                        # Générer les caches de production
+                        php artisan config:cache 2>/dev/null || echo "⚠️ Cache config non généré"
+                        php artisan route:cache 2>/dev/null || echo "⚠️ Cache route non généré"
+                        php artisan view:cache 2>/dev/null || echo "⚠️ Cache view non généré"
+                        
+                        # 4. Créer le fichier de version
+                        echo "4. Création du fichier de version..."
+                        cat > version.txt << VERSION_EOF
 Akaunting Application Build
 ===========================
-Version: ${BUILD_VERSION}
-Build Date: $(date)
-Build Number: ${BUILD_NUMBER}
-Git Commit: $(git rev-parse --short HEAD 2>/dev/null || echo "N/A")
+Version: \${buildVersion}
+Build Date: \$(date)
+Build Number: \${BUILD_NUMBER}
+Git Commit: \$(git rev-parse --short HEAD 2>/dev/null || echo "N/A")
 Environment: Production
-PHP Version: $(php --version | head -1)
-Laravel Version: $(php artisan --version 2>/dev/null || echo "N/A")
-EOF
-                    
-                    # 5. Créer l'artefact de déploiement
-                    echo "5. Création de l'artefact..."
-                    
-                    # Liste des fichiers à exclure
-                    cat > exclude-list.txt << 'EXCLUDE'
+PHP Version: \$(php --version | head -1)
+Laravel Version: \$(php artisan --version 2>/dev/null | cut -d' ' -f3 || echo "N/A")
+VERSION_EOF
+                        
+                        # 5. Créer l'artefact de déploiement
+                        echo "5. Création de l'artefact..."
+                        
+                        # Liste des fichiers à exclure
+                        cat > exclude-list.txt << 'EXCLUDE_EOF'
 .git
 .github
 node_modules
@@ -571,63 +573,64 @@ docker-compose*
 Dockerfile*
 README.md
 LICENSE
-EXCLUDE
-                    
-                    # Créer l'archive
-                    tar -czf ${BUILD_ARTIFACT}.tar.gz \
-                        --exclude-from=exclude-list.txt \
-                        --exclude="storage/logs" \
-                        --exclude="storage/framework/cache" \
-                        --exclude="storage/framework/sessions" \
-                        --exclude="storage/framework/views" \
-                        .
-                    
-                    # 6. Créer le manifest de build
-                    echo "6. Génération du manifest..."
-                    cat > build-manifest.json << EOF
+EXCLUDE_EOF
+                        
+                        # Créer l'archive
+                        tar -czf \${buildArtifact}.tar.gz \\
+                            --exclude-from=exclude-list.txt \\
+                            --exclude="storage/logs" \\
+                            --exclude="storage/framework/cache" \\
+                            --exclude="storage/framework/sessions" \\
+                            --exclude="storage/framework/views" \\
+                            .
+                        
+                        # 6. Créer le manifest de build
+                        echo "6. Génération du manifest..."
+                        cat > build-manifest.json << MANIFEST_EOF
 {
     "application": "Akaunting",
-    "version": "${BUILD_VERSION}",
-    "build_number": "${BUILD_NUMBER}",
-    "build_date": "$(date -Iseconds)",
+    "version": "\${buildVersion}",
+    "build_number": "\${BUILD_NUMBER}",
+    "build_date": "\$(date -Iseconds)",
     "dependencies": {
-        "php": "$(php --version | head -1 | cut -d' ' -f2)",
-        "laravel": "$(php artisan --version 2>/dev/null | cut -d' ' -f3 || echo 'unknown')"
+        "php": "\$(php --version | head -1 | cut -d' ' -f2)",
+        "laravel": "\$(php artisan --version 2>/dev/null | cut -d' ' -f3 || echo 'unknown')"
     },
     "artifacts": [
-        "${BUILD_ARTIFACT}.tar.gz",
+        "\${buildArtifact}.tar.gz",
         "version.txt",
         "build-manifest.json"
     ],
     "security_scan": {
         "performed": true,
         "reports": "security-reports/",
-        "timestamp": "$(date -Iseconds)"
+        "timestamp": "\$(date -Iseconds)"
     },
-    "checksum": "$(sha256sum ${BUILD_ARTIFACT}.tar.gz | cut -d' ' -f1)"
+    "checksum": "\$(sha256sum \${buildArtifact}.tar.gz | cut -d' ' -f1)"
 }
-EOF
-                    
-                    # 7. Vérification du build
-                    echo "7. Vérification du build..."
-                    if [ -f "${BUILD_ARTIFACT}.tar.gz" ]; then
-                        SIZE=$(du -h ${BUILD_ARTIFACT}.tar.gz | cut -f1)
-                        CHECKSUM=$(sha256sum ${BUILD_ARTIFACT}.tar.gz | cut -d' ' -f1)
-                        echo "✅ Build créé avec succès"
-                        echo "📦 Taille: $SIZE"
-                        echo "🔐 Checksum: $CHECKSUM"
-                        echo "🏷️  Version: ${BUILD_VERSION}"
-                    else
-                        echo "❌ Échec de création du build"
-                        exit 1
-                    fi
-                    
-                    # 8. Nettoyage final
-                    echo "8. Nettoyage final..."
-                    rm -f exclude-list.txt
-                    
-                    echo "🎉 Build terminé avec succès!"
-                '''
+MANIFEST_EOF
+                        
+                        # 7. Vérification du build
+                        echo "7. Vérification du build..."
+                        if [ -f "\${buildArtifact}.tar.gz" ]; then
+                            SIZE=\$(du -h \${buildArtifact}.tar.gz | cut -f1)
+                            CHECKSUM=\$(sha256sum \${buildArtifact}.tar.gz | cut -d' ' -f1)
+                            echo "✅ Build créé avec succès"
+                            echo "📦 Taille: \$SIZE"
+                            echo "🔐 Checksum: \$CHECKSUM"
+                            echo "🏷️  Version: \${buildVersion}"
+                        else
+                            echo "❌ Échec de création du build"
+                            exit 1
+                        fi
+                        
+                        # 8. Nettoyage final
+                        echo "8. Nettoyage final..."
+                        rm -f exclude-list.txt
+                        
+                        echo "🎉 Build terminé avec succès!"
+                    """
+                }
             }
             post {
                 always {
@@ -638,7 +641,10 @@ EOF
                     // Générer un rapport de build
                     sh '''
                         echo "📊 GÉNÉRATION DU RAPPORT DE BUILD..."
-                        cat > build-report.html << 'HTML'
+                        BUILD_ARTIFACT=\$(ls -t akaunting-build-*.tar.gz 2>/dev/null | head -1)
+                        BUILD_VERSION=\$(echo \$BUILD_ARTIFACT | sed 's/akaunting-build-//' | sed 's/.tar.gz//')
+                        
+                        cat > build-report.html << 'HTML_EOF'
 <!DOCTYPE html>
 <html>
 <head>
@@ -659,16 +665,16 @@ EOF
 <body>
     <div class="header">
         <h1>🏗️ Build Akaunting</h1>
-        <p>Version: ${BUILD_VERSION}</p>
-        <p>Build: #${BUILD_NUMBER}</p>
-        <p>Date: $(date)</p>
+        <p>Version: \${BUILD_VERSION}</p>
+        <p>Build: #\${BUILD_NUMBER}</p>
+        <p>Date: \$(date)</p>
     </div>
     
     <div class="metrics">
         <div class="metric success">
             <h3>📦</h3>
             <p>Artefact Créé</p>
-            <p>${BUILD_ARTIFACT}.tar.gz</p>
+            <p>\${BUILD_ARTIFACT}</p>
         </div>
         <div class="metric info">
             <h3>🔒</h3>
@@ -691,22 +697,22 @@ EOF
         </tr>
         <tr>
             <td>Version</td>
-            <td>${BUILD_VERSION}</td>
+            <td>\${BUILD_VERSION}</td>
             <td>✅</td>
         </tr>
         <tr>
             <td>Artefact</td>
-            <td>${BUILD_ARTIFACT}.tar.gz</td>
+            <td>\${BUILD_ARTIFACT}</td>
             <td>✅ Créé</td>
         </tr>
         <tr>
             <td>Checksum</td>
-            <td>$(sha256sum ${BUILD_ARTIFACT}.tar.gz 2>/dev/null | cut -d" " -f1 || echo "N/A")</td>
+            <td>\$(sha256sum \${BUILD_ARTIFACT} 2>/dev/null | cut -d" " -f1 || echo "N/A")</td>
             <td>✅ Validé</td>
         </tr>
         <tr>
             <td>Taille</td>
-            <td>$(du -h ${BUILD_ARTIFACT}.tar.gz 2>/dev/null | cut -f1 || echo "N/A")</td>
+            <td>\$(du -h \${BUILD_ARTIFACT} 2>/dev/null | cut -f1 || echo "N/A")</td>
             <td>✅ Optimisé</td>
         </tr>
         <tr>
@@ -718,7 +724,7 @@ EOF
     
     <h2>📁 Artefacts Générés</h2>
     <ul>
-        <li>${BUILD_ARTIFACT}.tar.gz - Archive de déploiement</li>
+        <li>\${BUILD_ARTIFACT} - Archive de déploiement</li>
         <li>version.txt - Informations de version</li>
         <li>build-manifest.json - Manifest du build</li>
         <li>security-reports/ - Rapports de sécurité</li>
@@ -732,7 +738,7 @@ EOF
     </ol>
 </body>
 </html>
-HTML
+HTML_EOF
                     '''
                 }
             }
@@ -754,10 +760,10 @@ HTML
             sh '''
                 echo "📊 RÉSUMÉ DU PIPELINE"
                 echo "===================="
-                echo "Build: #${BUILD_NUMBER}"
-                echo "Version: ${BUILD_VERSION}"
-                echo "Date: $(date)"
-                echo "Durée: ${currentBuild.durationString}"
+                echo "Build: #\${BUILD_NUMBER}"
+                echo "Version: \$(ls -t akaunting-build-*.tar.gz 2>/dev/null | head -1 | sed 's/akaunting-build-//' | sed 's/.tar.gz//' || echo "N/A")"
+                echo "Date: \$(date)"
+                echo "Durée: \${currentBuild.durationString}"
                 echo ""
                 echo "ARTÉFACTS GÉNÉRÉS:"
                 echo "-----------------"
@@ -773,14 +779,14 @@ HTML
             echo "💥 PIPELINE EN ÉCHEC"
             sh '''
                 echo "========== DIAGNOSTIC =========="
-                echo "PHP: $(php --version | head -1)"
-                echo "Composer: $(./composer --version 2>/dev/null || echo 'N/A')"
+                echo "PHP: \$(php --version | head -1)"
+                echo "Composer: \$(./composer --version 2>/dev/null || echo 'N/A')"
                 echo ""
                 echo "Fichier platform_check.php:"
                 ls -la vendor/composer/platform_check.php 2>/dev/null || echo "✅ Fichier platform_check.php supprimé"
                 echo ""
                 echo "Variables d'environnement Composer:"
-                echo "COMPOSER_PLATFORM_CHECK=$COMPOSER_PLATFORM_CHECK"
+                echo "COMPOSER_PLATFORM_CHECK=\$COMPOSER_PLATFORM_CHECK"
                 echo ""
                 echo "Structure vendor/composer:"
                 ls -la vendor/composer/ 2>/dev/null | head -10 || echo "vendor/composer/ non trouvé"
@@ -793,8 +799,8 @@ HTML
             '''
         }
         always {
-            sh 'echo "🕒 Pipeline terminé à : $(date)"'
-            sh 'echo "⏱️ Durée totale: ${currentBuild.durationString}"'
+            sh 'echo "🕒 Pipeline terminé à : \$(date)"'
+            sh 'echo "⏱️ Durée totale: \${currentBuild.durationString}"'
             
             // Nettoyage
             sh '''
